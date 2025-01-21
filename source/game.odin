@@ -24,18 +24,21 @@ then this whole package is just treated as a normal Odin package. No DLL is
 created.
 */
 
-package game
+package source
 
 import "core:fmt"
-import "core:math/linalg"
 import rl "vendor:raylib"
+import b2 "vendor:box2d"
 
 PIXEL_WINDOW_HEIGHT :: 180
 
 Game_Memory :: struct {
-	player_pos: rl.Vector2,
-	player_texture: rl.Texture,
-	some_number: int,
+	world_def: b2.WorldDef,
+	world_id: b2.WorldId,
+
+	player: Player,
+	enemies: map[string]Enemy,
+	pickup_items: map[string]Pickup_Item,
 }
 
 g_mem: ^Game_Memory
@@ -46,7 +49,7 @@ game_camera :: proc() -> rl.Camera2D {
 
 	return {
 		zoom = h/PIXEL_WINDOW_HEIGHT,
-		target = g_mem.player_pos,
+		target = g_mem.player.position,
 		offset = { w/2, h/2 },
 	}
 }
@@ -58,24 +61,11 @@ ui_camera :: proc() -> rl.Camera2D {
 }
 
 update :: proc() {
-	input: rl.Vector2
+	player_update(&g_mem.player, rl.GetFrameTime())
 
-	if rl.IsKeyDown(.UP) || rl.IsKeyDown(.W) {
-		input.y -= 1
+	for _, &enemy in g_mem.enemies {
+		enemy_update(&enemy)
 	}
-	if rl.IsKeyDown(.DOWN) || rl.IsKeyDown(.S) {
-		input.y += 1
-	}
-	if rl.IsKeyDown(.LEFT) || rl.IsKeyDown(.A) {
-		input.x -= 1
-	}
-	if rl.IsKeyDown(.RIGHT) || rl.IsKeyDown(.D) {
-		input.x += 1
-	}
-
-	input = linalg.normalize0(input)
-	g_mem.player_pos += input * rl.GetFrameTime() * 100
-	g_mem.some_number += 1
 }
 
 draw :: proc() {
@@ -83,9 +73,12 @@ draw :: proc() {
 	rl.ClearBackground(rl.BLACK)
 
 	rl.BeginMode2D(game_camera())
-	rl.DrawTextureEx(g_mem.player_texture, g_mem.player_pos, 0, 1, rl.WHITE)
-	rl.DrawRectangleV({20, 20}, {10, 10}, rl.RED)
-	rl.DrawRectangleV({-30, -20}, {10, 10}, rl.GREEN)
+
+	player_draw(&g_mem.player)
+	for _, &enemy in g_mem.enemies {
+		enemy_draw(&enemy)
+	}
+	rl.DrawRectangleV({-30, -20}, {10, 10}, rl.PURPLE) //TODO: do the same for pick up items
 	rl.EndMode2D()
 
 	rl.BeginMode2D(ui_camera())
@@ -93,7 +86,7 @@ draw :: proc() {
 	// NOTE: `fmt.ctprintf` uses the temp allocator. The temp allocator is
 	// cleared at the end of the frame by the main application, meaning inside
 	// `main_hot_reload.odin`, `main_release.odin` or `main_web_entry.odin`.
-	rl.DrawText(fmt.ctprintf("some_number: %v\nplayer_pos: %v", g_mem.some_number, g_mem.player_pos), 5, 5, 8, rl.WHITE)
+	rl.DrawText(fmt.ctprintf("player_pos: %v", g_mem.player.position), 5, 5, 8, rl.WHITE)
 
 	rl.EndMode2D()
 
@@ -110,21 +103,43 @@ game_update :: proc() -> bool {
 @(export)
 game_init_window :: proc() {
 	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
-	rl.InitWindow(1280, 720, "Odin + Raylib + Hot Reload template!")
-	rl.SetWindowPosition(200, 200)
-	rl.SetTargetFPS(500)
+	rl.InitWindow(1920, 1080, "Placeholder Name")
+	//rl.SetWindowPosition(200, 200)
+	rl.SetTargetFPS(60)
 }
 
 @(export)
 game_init :: proc() {
 	g_mem = new(Game_Memory)
+	world_def_init := b2.DefaultWorldDef()
 
 	g_mem^ = Game_Memory {
-		some_number = 100,
+		world_def = world_def_init,
+		world_id = b2.CreateWorld(world_def_init),
+		player = {
+			position = rl.Vector2{0, 0},
+			size = rl.Vector2{1, 1},
+			texture = rl.LoadTexture("assets/round_cat.png"),
+			speed = 2.0,
+			rotation = 0,
+			state = 0,
+			hitbox = b2.Circle{b2.Vec2{0,0}, 32.0},
+			id = 1000,
+			name = "player",
+			health = 100,
+			gamepad = 0,
+		},
+		enemies = make(map[string]Enemy),
+		pickup_items = make(map[string]Pickup_Item),
+	}
+	g_mem.world_def.gravity = b2.Vec2{0, 0}
 
-		// You can put textures, sounds and music in the `assets` folder. Those
-		// files will be part any release or web build.
-		player_texture = rl.LoadTexture("assets/round_cat.png"),
+	// TODO: make a forloop to create some enemies, for some reason only 1 is showing up on screen?, might all be spawning on top of each other
+	for i in 0..<10 {
+		fmt.println(i)
+		enemy := create_enemy()
+		g_mem.enemies[enemy.name] = enemy
+		fmt.printfln("enemy created")
 	}
 
 	game_hot_reloaded(g_mem)

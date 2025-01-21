@@ -28,14 +28,18 @@ package source
 
 import "core:fmt"
 import rl "vendor:raylib"
-import b2 "vendor:box2d"
 
-PIXEL_WINDOW_HEIGHT :: 180
+PIXEL_WINDOW_HEIGHT :: 400
+
+DEBUG_MODE :: true
+
+SCALER :: 2
 
 Game_Memory :: struct {
-	world_def: b2.WorldDef,
-	world_id: b2.WorldId,
+	// GameManger
+	timer: f32,
 
+	// Objects
 	player: Player,
 	enemies: map[string]Enemy,
 	pickup_items: map[string]Pickup_Item,
@@ -48,7 +52,7 @@ game_camera :: proc() -> rl.Camera2D {
 	h := f32(rl.GetScreenHeight())
 
 	return {
-		zoom = h/PIXEL_WINDOW_HEIGHT,
+		zoom = 2,
 		target = g_mem.player.position,
 		offset = { w/2, h/2 },
 	}
@@ -56,15 +60,16 @@ game_camera :: proc() -> rl.Camera2D {
 
 ui_camera :: proc() -> rl.Camera2D {
 	return {
-		zoom = f32(rl.GetScreenHeight())/PIXEL_WINDOW_HEIGHT,
+		//zoom = f32(rl.GetScreenHeight())/PIXEL_WINDOW_HEIGHT,
 	}
 }
 
 update :: proc() {
+	g_mem.timer = UpdateTimer(g_mem.timer)
 	player_update(&g_mem.player, rl.GetFrameTime())
 
 	for _, &enemy in g_mem.enemies {
-		enemy_update(&enemy)
+		UpdateEnemy(&enemy)
 	}
 }
 
@@ -72,23 +77,26 @@ draw :: proc() {
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.BLACK)
 
+//2D World
 	rl.BeginMode2D(game_camera())
 
 	player_draw(&g_mem.player)
 	for _, &enemy in g_mem.enemies {
-		enemy_draw(&enemy)
+		DrawEnemy(&enemy)
 	}
 	rl.DrawRectangleV({-30, -20}, {10, 10}, rl.PURPLE) //TODO: do the same for pick up items
 	rl.EndMode2D()
 
-	rl.BeginMode2D(ui_camera())
-
+//GUI
 	// NOTE: `fmt.ctprintf` uses the temp allocator. The temp allocator is
 	// cleared at the end of the frame by the main application, meaning inside
 	// `main_hot_reload.odin`, `main_release.odin` or `main_web_entry.odin`.
-	rl.DrawText(fmt.ctprintf("player_pos: %v", g_mem.player.position), 5, 5, 8, rl.WHITE)
+	rl.DrawText(fmt.ctprintf("player_pos: %v", g_mem.player.position), 5, 5, 20, rl.WHITE)
+	rl.DrawFPS(rl.GetScreenWidth()-30, 5)
+	rl.DrawText(fmt.ctprintf("%.2f", g_mem.timer), rl.GetScreenWidth()/2, 5, 50, rl.WHITE)
 
-	rl.EndMode2D()
+
+
 
 	rl.EndDrawing()
 }
@@ -111,11 +119,13 @@ game_init_window :: proc() {
 @(export)
 game_init :: proc() {
 	g_mem = new(Game_Memory)
-	world_def_init := b2.DefaultWorldDef()
+
 
 	g_mem^ = Game_Memory {
-		world_def = world_def_init,
-		world_id = b2.CreateWorld(world_def_init),
+		// GameManger
+		timer = 0.0,
+
+		// Objects
 		player = {
 			position = rl.Vector2{0, 0},
 			size = rl.Vector2{1, 1},
@@ -123,7 +133,7 @@ game_init :: proc() {
 			speed = 2.0,
 			rotation = 0,
 			state = 0,
-			hitbox = b2.Circle{b2.Vec2{0,0}, 32.0},
+			hitbox = Circle{{0,0}, 32.0},
 			id = 1000,
 			name = "player",
 			health = 100,
@@ -132,15 +142,16 @@ game_init :: proc() {
 		enemies = make(map[string]Enemy),
 		pickup_items = make(map[string]Pickup_Item),
 	}
-	g_mem.world_def.gravity = b2.Vec2{0, 0}
+
 
 	// TODO: make a forloop to create some enemies, for some reason only 1 is showing up on screen?, might all be spawning on top of each other
-	for i in 0..<10 {
-		fmt.println(i)
-		enemy := create_enemy()
+	for _ in 0..<700 {
+		//fmt.println(i)
+		enemy := CreateEnemy()
 		g_mem.enemies[enemy.name] = enemy
-		fmt.printfln("enemy created")
+		//fmt.printfln("enemy created: %s", enemy.name)
 	}
+	//fmt.printfln("%v", g_mem.enemies)
 
 	game_hot_reloaded(g_mem)
 }

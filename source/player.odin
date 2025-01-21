@@ -53,6 +53,7 @@ player_update :: proc(player: ^Player, delta_time: f32) {
 
 player_draw :: proc(player: ^Player) {
     rl.DrawTextureEx(player.texture, player.position, 0, 1, rl.WHITE)
+    //rl.DrawRectangleV(player.position, {10, 10}, rl.BLUE)
 }
 
 player_collision:: proc(player: ^Player, other: ^Object) {

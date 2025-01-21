@@ -52,7 +52,7 @@ game_camera :: proc() -> rl.Camera2D {
 	h := f32(rl.GetScreenHeight())
 
 	return {
-		zoom = 2,
+		zoom = 4,
 		target = g_mem.player.position,
 		offset = { w/2, h/2 },
 	}
@@ -93,7 +93,7 @@ draw :: proc() {
 	// `main_hot_reload.odin`, `main_release.odin` or `main_web_entry.odin`.
 	rl.DrawText(fmt.ctprintf("player_pos: %v", g_mem.player.position), 5, 5, 20, rl.WHITE)
 	rl.DrawFPS(rl.GetScreenWidth()-30, 5)
-	rl.DrawText(fmt.ctprintf("%.2f", g_mem.timer), rl.GetScreenWidth()/2, 5, 50, rl.WHITE)
+	rl.DrawText(FormatTimer(g_mem.timer), (rl.GetScreenWidth()/2)-50, 5, 50, rl.WHITE)
 
 
 
@@ -111,7 +111,7 @@ game_update :: proc() -> bool {
 @(export)
 game_init_window :: proc() {
 	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
-	rl.InitWindow(1920, 1080, "Placeholder Name")
+	rl.InitWindow(1280, 720, "Placeholder Name")
 	//rl.SetWindowPosition(200, 200)
 	rl.SetTargetFPS(60)
 }
@@ -136,6 +136,13 @@ game_init :: proc() {
 			hitbox = Circle{{0,0}, 32.0},
 			id = 1000,
 			name = "player",
+			weapon = Weapon{
+				type = .Finger,
+				name = "Finger Gun",
+				damage = 34,
+				level = 1,
+				rotation = 0.0,
+			},
 			health = 100,
 			gamepad = 0,
 		},
@@ -145,12 +152,12 @@ game_init :: proc() {
 
 
 	// TODO: make a forloop to create some enemies, for some reason only 1 is showing up on screen?, might all be spawning on top of each other
-	for _ in 0..<700 {
-		//fmt.println(i)
-		enemy := CreateEnemy()
-		g_mem.enemies[enemy.name] = enemy
-		//fmt.printfln("enemy created: %s", enemy.name)
-	}
+//	for _ in 0..<10 {
+//		//fmt.println(i)
+//		enemy := CreateEnemy()
+//		g_mem.enemies[enemy.name] = enemy
+//		//fmt.printfln("enemy created: %s", enemy.name)
+//	}
 	//fmt.printfln("%v", g_mem.enemies)
 
 	game_hot_reloaded(g_mem)

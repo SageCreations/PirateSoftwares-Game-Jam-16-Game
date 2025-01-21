@@ -73,7 +73,7 @@ UpdateEnemy :: proc(enemy: ^Enemy) {
     length: f32 = rl.Vector2Length(direction)
 
     direction = direction * (enemy.speed / length) // Normalize and scale
-    enemy.position = (enemy.position - direction) //* rl.GetFrameTime()
+    enemy.position = (enemy.position - direction)
     enemy.hitbox.center = rl.Vector2{enemy.position.x+f32(enemy.texture.width/2), enemy.position.y+f32(enemy.texture.height/2)}
 
 }

@@ -6,7 +6,6 @@ import rl "vendor:raylib"
 // == Object Stuff ============================================================
 Object :: struct {
     position: rl.Vector2,
-    size: rl.Vector2,
     texture: rl.Texture2D,
     speed: f32,
     rotation: f32,

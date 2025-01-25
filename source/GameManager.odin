@@ -3,6 +3,13 @@ package source
 import rl "vendor:raylib"
 import "core:fmt"
 
+SceneState :: enum {
+    Title,
+    Settings,
+    Gameplay,
+    Ending,
+}
+
 UpdateTimer :: proc(timer: f32) -> f32 {
     return timer + rl.GetFrameTime()
 }

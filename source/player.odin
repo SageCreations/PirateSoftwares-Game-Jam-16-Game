@@ -5,9 +5,12 @@ import "core:math/linalg"
 import "core:math"
 //import "core:fmt"
 
+//import "core:fmt"
+
 Player :: struct {
     using obj: Object,
     weapon: Weapon,
+    offset: rl.Vector2,
     health: i32,
     gamepad: i32,
 }
@@ -63,26 +66,34 @@ player_update :: proc(player: ^Player, delta_time: f32) {
 }
 
 player_draw :: proc(player: ^Player) {
-    rl.DrawTextureEx(player.texture, player.position, 0, 1, rl.WHITE)
+    rl.DrawTextureEx(player.texture, rl.Vector2{player.position.x - f32(player.texture.width/2), player.position.y - f32(player.texture.width/2)}, 0, 1, rl.WHITE)
     //rl.DrawRectangleV(player.position, {10, 10}, rl.BLUE)
 
     // weapon
     mouse_pos_world2d := rl.GetScreenToWorld2D(rl.GetMousePosition(), game_camera())
-    //rl.GetScreenTo
-    direction := mouse_pos_world2d
-    //distance := rl.Vector2DistanceSqrt(direction, direction)
-//    if distance > 0 {
-//        direction = direction/distance
-//    }
-    //weapon_offset := player.position
+    direction: rl.Vector2 = mouse_pos_world2d - player.position
+    angleRadians: f32 = math.atan2_f32(direction.y, direction.x)
+    angleDegrees: f32 = angleRadians * rl.RAD2DEG
+
+    // 3. Rotate the offset vector to create the orbiting effect
+    rotatedOffsetX: f32 = player.offset.x * math.cos_f32(angleRadians) - player.offset.y * math.sin_f32(angleRadians)
+    rotatedOffsetY: f32 = player.offset.x * math.sin_f32(angleRadians) + player.offset.y * math.cos_f32(angleRadians)
 
     rl.DrawRectanglePro(
-        rl.Rectangle{ direction.x, direction.y, 5, 5 },
-        {player.position.x + 2.5, player.position.y + 2.5},
-        math.atan2_f32(mouse_pos_world2d.y, mouse_pos_world2d.x) * rl.RAD2DEG,
+        rl.Rectangle{ player.position.x + rotatedOffsetX, player.position.y + rotatedOffsetY, 5, 5 },
+        rl.Vector2{ 2.5, 2.5 },
+        angleDegrees,
         rl.BLUE,
     )
 
+    rl.DrawTexturePro(
+        player.weapon.texture,
+        rl.Rectangle{ 0, 0, f32(player.weapon.texture.width), f32(player.weapon.texture.height) }, // source
+        rl.Rectangle{ player.position.x + rotatedOffsetX, player.position.y + rotatedOffsetY, f32(player.weapon.texture.width), f32(player.weapon.texture.height) }, // destination
+        rl.Vector2{ f32(player.weapon.texture.width/2), f32(player.weapon.texture.height/2) }, // pivot = center
+        angleDegrees,
+        rl.WHITE,
+    )
 }
 
 

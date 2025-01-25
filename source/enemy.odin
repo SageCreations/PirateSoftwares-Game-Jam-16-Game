@@ -17,7 +17,6 @@ CreateEnemy :: proc() -> Enemy {
     enemy_texture := rl.LoadTexture("assets/enemy_placeholder.png")
     return Enemy{
         position = rl.Vector2{rand_x, rand_y},
-        size = rl.Vector2{1, 1},
         texture =enemy_texture,
         speed = 0.5,
         rotation = 0,

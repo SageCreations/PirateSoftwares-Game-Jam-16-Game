@@ -20,7 +20,6 @@ CreateEnemy :: proc() -> Enemy {
         texture =enemy_texture,
         speed = 0.5,
         rotation = 0,
-        state = 0,
         hitbox = Circle{{rand_x+f32(enemy_texture.width/2), rand_y+f32(enemy_texture.height/2)}, 4.0},
         id = id,
         name = fmt.aprintf("enemy-%d", id),
@@ -31,8 +30,28 @@ CreateEnemy :: proc() -> Enemy {
 
 UpdateEnemy :: proc(enemy: ^Enemy) {
     // check collision for other enemies
+    _EnemyCollision(enemy)
 
-    is_colliding: bool = false
+    // Movement towards the player
+    direction: rl.Vector2 = enemy.position - g_mem.player.position
+    length: f32 = rl.Vector2Length(direction)
+
+    direction = direction * (enemy.speed / length) // Normalize and scale
+    enemy.position = (enemy.position - direction)
+    enemy.hitbox.center = rl.Vector2{enemy.position.x+f32(enemy.texture.width/2), enemy.position.y+f32(enemy.texture.height/2)}
+
+}
+
+DrawEnemy :: proc(enemy: ^Enemy) {
+    //rl.DrawRectangleV(enemy.position, {10, 10}, rl.RED) //TODO: do the same for pick up items
+    rl.DrawTextureEx(enemy.texture, enemy.position, enemy.rotation, 1, rl.WHITE)
+    if DEBUG_MODE {
+        DrawCollider(enemy.hitbox)
+    }
+}
+
+
+_EnemyCollision :: proc(enemy: ^Enemy) {
     for _, &other in g_mem.enemies {
         if enemy.name != other.name {
             delta := rl.Vector2{other.position.x - enemy.position.x, other.position.y - enemy.position.y}
@@ -40,9 +59,7 @@ UpdateEnemy :: proc(enemy: ^Enemy) {
             overlap: f32 = enemy.hitbox.radius + other.hitbox.radius - distance
 
             if overlap > 0 {
-                is_colliding = IsColliding(enemy.hitbox, other.hitbox)
-
-                // Normalize the delta to get the collision normal
+            // Normalize the delta to get the collision normal
                 collision_normal := rl.Vector2Normalize(delta)
 
                 // Proportional movement adjustment to resolve overlap
@@ -64,24 +81,6 @@ UpdateEnemy :: proc(enemy: ^Enemy) {
                 }
             }
         }
-    }
-
-
-    // Movement towards the player
-    direction: rl.Vector2 = enemy.position - g_mem.player.position
-    length: f32 = rl.Vector2Length(direction)
-
-    direction = direction * (enemy.speed / length) // Normalize and scale
-    enemy.position = (enemy.position - direction)
-    enemy.hitbox.center = rl.Vector2{enemy.position.x+f32(enemy.texture.width/2), enemy.position.y+f32(enemy.texture.height/2)}
-
-}
-
-DrawEnemy :: proc(enemy: ^Enemy) {
-    //rl.DrawRectangleV(enemy.position, {10, 10}, rl.RED) //TODO: do the same for pick up items
-    rl.DrawTextureEx(enemy.texture, enemy.position, enemy.rotation, 1, rl.WHITE)
-    if DEBUG_MODE {
-        DrawCollider(enemy.hitbox)
     }
 }
 

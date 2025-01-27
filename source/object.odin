@@ -9,11 +9,9 @@ Object :: struct {
     texture: rl.Texture2D,
     speed: f32,
     rotation: f32,
-    state: uint,
     hitbox: Circle,
     id: i32,
     name: string,
-
 }
 
 // Debug info prints the Object's information

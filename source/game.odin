@@ -34,19 +34,6 @@ PIXEL_WINDOW_HEIGHT :: 400
 DEBUG_MODE :: true
 
 
-Game_Memory :: struct {
-	// GameManger
-	scene: SceneState,
-	timer: f32,
-	paused: bool,
-
-	// Objects
-	player: Player,
-	enemies: map[string]Enemy,
-	pickup_items: map[string]Pickup_Item,
-}
-
-
 g_mem: ^Game_Memory
 sound_level: f32
 
@@ -75,15 +62,18 @@ update :: proc() {
 	case .Settings:
 
 	case .Gameplay:
-		if rl.IsKeyPressed(.P) || rl.IsKeyPressed(.ESCAPE) {
+		if rl.IsKeyPressed(.P) {
 			g_mem.paused = !g_mem.paused
 		}
-
 		if !g_mem.paused {
 
 			g_mem.timer = UpdateTimer(g_mem.timer)
 			player_update(&g_mem.player, rl.GetFrameTime())
 
+			if (i32(g_mem.timer) / 60) != g_mem.timer_count  {
+				g_mem.timer_count = (i32(g_mem.timer) / 60)
+				CheckForWeaponUpgrades()
+			}
 
 			for _, &enemy in g_mem.enemies {
 				UpdateEnemy(&enemy)
@@ -103,9 +93,7 @@ draw :: proc() {
 
 	switch g_mem.scene {
 	case .Title:
-
 	case .Settings:
-
 	case .Gameplay:
 		player_draw(&g_mem.player)
 		for _, &enemy in g_mem.enemies {
@@ -126,14 +114,11 @@ draw :: proc() {
 		if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-100, f32(rl.GetScreenHeight()/2)-25, 200, 50}, "Start Game") {
 			g_mem.scene = .Gameplay
 		}
-
 	case .Settings:
 		if rl.GuiButton(rl.Rectangle{10, 10, 200, 50}, "Back") {
 			g_mem.scene = .Title
 		}
-		rl.GuiSlider(rl.Rectangle{f32(rl.GetScreenWidth()/2) - 100.0, 100.0, 200, 50}, cstring("Sound: 0"), cstring(" 100"), &sound_level, 0.0, 1.0)
-		//fmt.printfln("number from guislider: %d", idk)
-
+		rl.GuiSlider(rl.Rectangle{f32(rl.GetScreenWidth()/2) - 100.0, 100.0, 200.0, 50.0}, cstring("Sound: 0"), cstring(" 100"), &sound_level, 0.0, 1.0)
 	case .Gameplay:
 		// NOTE: `fmt.ctprintf` uses the temp allocator. The temp allocator is
 		// cleared at the end of the frame by the main application, meaning inside
@@ -144,17 +129,31 @@ draw :: proc() {
 		rl.DrawFPS(rl.GetScreenWidth()-30, 5)
 		rl.DrawText(FormatTimer(g_mem.timer), (rl.GetScreenWidth()/2)-50, 5, 50, rl.WHITE)
 
+		// Inventory HUD
+		for index in 0..<5 {
+			scaler: i32 = i32(index) * 100
+			rec := rl.Rectangle{ (f32(rl.GetScreenWidth()/2)-250) + f32(scaler), f32(rl.GetScreenHeight()-100), 100, 100 }
+			rl.DrawRectangleLinesEx(rec, 5, rl.WHITE)
+			rl.DrawTextureEx(
+				g_mem.player.inventory[index].texture,
+				rl.Vector2{(f32(rl.GetScreenWidth()/2)-245) + f32(scaler), f32(rl.GetScreenHeight()-95)},
+				0,
+				5.5,
+				rl.WHITE,
+			)
+		}
+		rl.DrawRectangleLinesEx(rl.Rectangle{ (f32(rl.GetScreenWidth()/2)-250) + f32(g_mem.player.selected * 100), f32(rl.GetScreenHeight()-100), 100, 100 }, 5, rl.GREEN)
+
 		if g_mem.paused {
 			rl.DrawRectangle(10, 10, rl.GetScreenWidth()-20, rl.GetScreenHeight()-20, rl.DARKGRAY)
 			if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 50, 400, 100}, "Restart") {
 				game_init(restart=true)
 			}
-			if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 50, 400, 300}, "Return to Title") {
+			if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 200, 400, 100}, "Return to Title") {
 				game_init()
 			}
 		}
 	case .Ending:
-
 	}
 	rl.EndMode2D()
 
@@ -177,17 +176,19 @@ game_init_window :: proc() {
 
 	// init global Settings here
 	sound_level = 0.7
+	fmt.printfln("Window Init!")
 }
 
 @(export)
 game_init :: proc(restart: bool = false) {
-	// defaults to overwrite
+
+
+// defaults to overwrite
 	player_default := Player{
 		position = rl.Vector2{0, 0},
 		texture = rl.LoadTexture("assets/round_cat.png"),
 		speed = 2.0,
 		rotation = 0,
-		state = 0,
 		hitbox = Circle{{0,0}, 32.0},
 		id = 1000,
 		name = "player",
@@ -196,12 +197,14 @@ game_init :: proc(restart: bool = false) {
 			type = .Finger,
 			name = "Finger Gun",
 			texture = rl.LoadTexture("assets/FingerGun.png"),
+			bullet_texture = rl.LoadTexture("assets/round_cat.png"),
 			damage = 34,
 			level = 1,
-			rotation = 0.0,
 		},
 		health = 100,
 		gamepad = 0,
+		inventory = testWeaponInventory(),
+		selected = 0,
 	}
 
 	g_mem = new(Game_Memory)
@@ -210,6 +213,7 @@ game_init :: proc(restart: bool = false) {
 		// GameManger
 		scene = (restart) ? .Gameplay : .Title,
 		timer = 0.0,
+		timer_count = 0,
 		paused = false,
 
 		// default overwrites

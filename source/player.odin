@@ -3,9 +3,6 @@ package source
 import rl "vendor:raylib"
 import "core:math/linalg"
 import "core:math"
-//import "core:fmt"
-
-//import "core:fmt"
 
 Player :: struct {
     using obj: Object,
@@ -13,6 +10,8 @@ Player :: struct {
     offset: rl.Vector2,
     health: i32,
     gamepad: i32,
+    inventory: [5]Weapon,
+    selected: i32,
 }
 
 player_update :: proc(player: ^Player, delta_time: f32) {
@@ -39,14 +38,7 @@ player_update :: proc(player: ^Player, delta_time: f32) {
         // TODO: implement controller movement
 
     } else {
-        direction := rl.GetMousePosition() - player.position
-        distance := rl.Vector2DistanceSqrt(direction, direction)
-
-        if distance > 0 {
-            direction = direction/distance
-        }
-        player.weapon.rotation = math.atan2_f32(direction.y, direction.x) * rl.RAD2DEG
-
+        // Movement
         if rl.IsKeyDown(.UP) || rl.IsKeyDown(.W) {
             input.y -= player.speed * delta_time
         }
@@ -59,10 +51,30 @@ player_update :: proc(player: ^Player, delta_time: f32) {
         if rl.IsKeyDown(.RIGHT) || rl.IsKeyDown(.D) {
             input.x += player.speed * delta_time
         }
+
+        // Weapon Selection
+        if rl.IsKeyPressed(.Q) {
+            if player.selected == 0 {
+                player.selected = 4
+            } else {
+                player.selected = player.selected - 1
+            }
+        }
+        if rl.IsKeyPressed(.E) {
+            if player.selected == 4 {
+                player.selected = 0
+            } else {
+                player.selected = player.selected + 1
+            }
+        }
     }
 
+    // move player
     input = linalg.normalize0(input)
     player.position += input * rl.GetFrameTime() * 100
+
+    // switch weapon
+    player.weapon = player.inventory[player.selected]
 }
 
 player_draw :: proc(player: ^Player) {
@@ -97,7 +109,8 @@ player_draw :: proc(player: ^Player) {
 }
 
 
-
 player_collision:: proc(player: ^Player, other: ^Object) {
     // TODO: handle what happens with the player on collision detection
 }
+
+

@@ -12,10 +12,18 @@ Player :: struct {
     gamepad: i32,
     inventory: [5]Weapon,
     selected: i32,
+    invuln: bool,
+    invuln_time_start: f32,
+    is_dead: bool,
 }
 
 player_update :: proc(player: ^Player, delta_time: f32) {
     input: rl.Vector2
+
+    //update invuln status
+    if player.invuln && g_mem.timer >= (player.invuln_time_start + 2.5) {
+        player.invuln = false
+    }
 
 
     if rl.IsGamepadAvailable(player.gamepad) {
@@ -67,19 +75,34 @@ player_update :: proc(player: ^Player, delta_time: f32) {
                 player.selected = player.selected + 1
             }
         }
+
+
+        // item drop
+        if rl.IsKeyPressed(.R) {
+            if player.inventory[player.selected].type != .None {
+                wp_pickup := CreateWeaponPickup(player.position, player.inventory[player.selected])
+                player.inventory[player.selected] = Weapon{}
+                g_mem.weapon_pickups[wp_pickup.id] = wp_pickup
+            }
+        }
     }
 
     // move player
     input = linalg.normalize0(input)
     player.position += input * rl.GetFrameTime() * 100
+    player.hitbox.center = player.position
 
     // switch weapon
     player.weapon = player.inventory[player.selected]
 }
 
 player_draw :: proc(player: ^Player) {
-    rl.DrawTextureEx(player.texture, rl.Vector2{player.position.x - f32(player.texture.width/2), player.position.y - f32(player.texture.width/2)}, 0, 1, rl.WHITE)
-    //rl.DrawRectangleV(player.position, {10, 10}, rl.BLUE)
+    // player texture
+    player_tint: rl.Color = (player.invuln) ? rl.RED : rl.WHITE
+    rl.DrawTextureEx(player.texture, rl.Vector2{player.position.x - f32(player.texture.width/2), player.position.y - f32(player.texture.width/2)}, 0, 1, player_tint)
+    if DEBUG_MODE {
+        DrawCollider(player.hitbox)
+    }
 
     // weapon
     mouse_pos_world2d := rl.GetScreenToWorld2D(rl.GetMousePosition(), game_camera())
@@ -91,6 +114,7 @@ player_draw :: proc(player: ^Player) {
     rotatedOffsetX: f32 = player.offset.x * math.cos_f32(angleRadians) - player.offset.y * math.sin_f32(angleRadians)
     rotatedOffsetY: f32 = player.offset.x * math.sin_f32(angleRadians) + player.offset.y * math.cos_f32(angleRadians)
 
+    // default weapon
     rl.DrawRectanglePro(
         rl.Rectangle{ player.position.x + rotatedOffsetX, player.position.y + rotatedOffsetY, 5, 5 },
         rl.Vector2{ 2.5, 2.5 },
@@ -98,19 +122,40 @@ player_draw :: proc(player: ^Player) {
         rl.BLUE,
     )
 
+    // player's weapon
     rl.DrawTexturePro(
         player.weapon.texture,
         rl.Rectangle{ 0, 0, f32(player.weapon.texture.width), f32(player.weapon.texture.height) }, // source
         rl.Rectangle{ player.position.x + rotatedOffsetX, player.position.y + rotatedOffsetY, f32(player.weapon.texture.width), f32(player.weapon.texture.height) }, // destination
         rl.Vector2{ f32(player.weapon.texture.width/2), f32(player.weapon.texture.height/2) }, // pivot = center
         angleDegrees,
-        rl.WHITE,
+        GetWeaponTint(player.weapon.level),
     )
 }
 
+DamagePlayer :: proc(player: ^Player) {
+    if !player.invuln {
+        player.health -= 30
+        player.invuln = true
+        player.invuln_time_start = g_mem.timer
+    }
 
-player_collision:: proc(player: ^Player, other: ^Object) {
-    // TODO: handle what happens with the player on collision detection
+    if (player.health <= 0) {
+        player.is_dead = true
+    }
+
+}
+
+
+PlayerCollision :: proc(player: ^Player, other: ^Object) {
+    if other.name == "item" {
+        // TODO: may not implement, not sure if we have time.
+    } else if other.name == "enemy" {
+        DamagePlayer(player)
+    } else if other.name == "weapon" {
+        // TODO: prompt user for pickup
+
+    }
 }
 
 

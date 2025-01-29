@@ -28,6 +28,7 @@ package source
 
 import "core:fmt"
 import rl "vendor:raylib"
+import "core:math/rand"
 
 PIXEL_WINDOW_HEIGHT :: 400
 
@@ -66,8 +67,13 @@ update :: proc() {
 			g_mem.paused = !g_mem.paused
 		}
 		if !g_mem.paused {
-
 			g_mem.timer = UpdateTimer(g_mem.timer)
+
+			// check if its time to spawn enemies
+			if g_mem.timer >= g_mem.spawn_timer + g_mem.spawn_cooldown {
+				SpawnEnemies()
+			}
+
 			player_update(&g_mem.player, rl.GetFrameTime())
 
 			if (i32(g_mem.timer) / 60) != g_mem.timer_count  {
@@ -75,8 +81,45 @@ update :: proc() {
 				CheckForWeaponUpgrades()
 			}
 
-			for _, &enemy in g_mem.enemies {
+			for key, &enemy in g_mem.enemies {
 				UpdateEnemy(&enemy)
+				if IsColliding(g_mem.player.hitbox, enemy.hitbox) {
+					PlayerCollision(&g_mem.player, &enemy)
+				}
+
+				if enemy.is_dead {
+					// chance to drop loot
+					if rand.int_max(100)+1 <= 25 {
+						pass: bool = true
+						new_item := CreateWeaponPickup(enemy.position)
+
+						for _, item in g_mem.weapon_pickups {
+							if IsColliding(new_item.hitbox, item.hitbox) {
+								pass = false
+								return
+							}
+						}
+
+						if pass {
+							g_mem.weapon_pickups[new_item.id] = new_item
+						}
+					}
+					// delete enemy from list. TODO: add death anim. maybe?
+					delete_key(&g_mem.enemies, key)
+				}
+			}
+
+			// check for collision of pickup items
+			for key, &item in g_mem.weapon_pickups {
+				// despawn needs to be last
+				if g_mem.timer >= item.despawn_timer + 30 {
+					delete_key(&g_mem.weapon_pickups, key)
+				}
+			}
+
+
+			if g_mem.player.is_dead {
+				g_mem.scene = .Ending
 			}
 
 		}
@@ -95,11 +138,26 @@ draw :: proc() {
 	case .Title:
 	case .Settings:
 	case .Gameplay:
+		// player draws
 		player_draw(&g_mem.player)
+		// enemy draws
 		for _, &enemy in g_mem.enemies {
 			DrawEnemy(&enemy)
 		}
 		rl.DrawRectangleV({-30, -20}, {10, 10}, rl.PURPLE) //TODO: do the same for pick up items
+		// pickup item draws
+		for key, &item in g_mem.weapon_pickups {
+			DrawWeaponPickup(&item)
+			if IsColliding(g_mem.player.hitbox, item.hitbox) {
+				rl.DrawText(GetPickupPrompt(item.weapon), i32(item.position.x), i32(item.position.y), 8, rl.WHITE)
+				// pickup items
+				if rl.IsKeyPressed(.F) {
+					if WeaponToInventory(&item.weapon) {
+						delete_key(&g_mem.weapon_pickups, key)
+					}
+				}
+			}
+		}
 	case .Ending:
 	}
 	rl.EndMode2D()
@@ -123,10 +181,14 @@ draw :: proc() {
 		// NOTE: `fmt.ctprintf` uses the temp allocator. The temp allocator is
 		// cleared at the end of the frame by the main application, meaning inside
 		// `main_hot_reload.odin`, `main_release.odin` or `main_web_entry.odin`.
-		rl.DrawText(fmt.ctprintf("player_pos: %v", g_mem.player.position), 5, 5, 20, rl.WHITE)
-		rl.DrawText(
-		fmt.ctprintf("mouse_pos: %v", rl.GetScreenToWorld2D(rl.GetMousePosition(), game_camera())), 5,  25, 20, rl.WHITE)
-		rl.DrawFPS(rl.GetScreenWidth()-30, 5)
+
+		if DEBUG_MODE {
+			rl.DrawText(fmt.ctprintf("player_pos: %v", g_mem.player.position), 5, 5, 20, rl.WHITE)
+			rl.DrawText(
+			fmt.ctprintf("mouse_pos: %v", rl.GetScreenToWorld2D(rl.GetMousePosition(), game_camera())), 5,  25, 20, rl.WHITE)
+			rl.DrawFPS(rl.GetScreenWidth()-30, 5)
+			rl.DrawText(fmt.ctprintf("Enemies Spawned in: %d", len(g_mem.enemies)), 5, 45, 20, rl.WHITE)
+		}
 		rl.DrawText(FormatTimer(g_mem.timer), (rl.GetScreenWidth()/2)-50, 5, 50, rl.WHITE)
 
 		// Inventory HUD
@@ -139,10 +201,11 @@ draw :: proc() {
 				rl.Vector2{(f32(rl.GetScreenWidth()/2)-245) + f32(scaler), f32(rl.GetScreenHeight()-95)},
 				0,
 				5.5,
-				rl.WHITE,
+				GetWeaponTint(g_mem.player.inventory[index].level),
 			)
 		}
 		rl.DrawRectangleLinesEx(rl.Rectangle{ (f32(rl.GetScreenWidth()/2)-250) + f32(g_mem.player.selected * 100), f32(rl.GetScreenHeight()-100), 100, 100 }, 5, rl.GREEN)
+		rl.DrawText(GetPickupPrompt(g_mem.player.inventory[g_mem.player.selected], true), rl.GetScreenWidth()/2-250, rl.GetScreenHeight()-125, 20, rl.WHITE)
 
 		if g_mem.paused {
 			rl.DrawRectangle(10, 10, rl.GetScreenWidth()-20, rl.GetScreenHeight()-20, rl.DARKGRAY)
@@ -154,6 +217,12 @@ draw :: proc() {
 			}
 		}
 	case .Ending:
+		if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 50, 400, 100}, "Try Again") {
+			game_init(restart=true)
+		}
+		if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 200, 400, 100}, "Back to Title") {
+			game_init()
+		}
 	}
 	rl.EndMode2D()
 
@@ -189,8 +258,8 @@ game_init :: proc(restart: bool = false) {
 		texture = rl.LoadTexture("assets/round_cat.png"),
 		speed = 2.0,
 		rotation = 0,
-		hitbox = Circle{{0,0}, 32.0},
-		id = 1000,
+		hitbox = Circle{{0,0}, 5.0},
+		id = "player-1",
 		name = "player",
 		offset = rl.Vector2{16, 0},
 		weapon = Weapon{
@@ -203,8 +272,11 @@ game_init :: proc(restart: bool = false) {
 		},
 		health = 100,
 		gamepad = 0,
-		inventory = testWeaponInventory(),
+		inventory = {},
 		selected = 0,
+		invuln = false,
+		invuln_time_start = 0.0,
+		is_dead = false,
 	}
 
 	g_mem = new(Game_Memory)
@@ -215,23 +287,18 @@ game_init :: proc(restart: bool = false) {
 		timer = 0.0,
 		timer_count = 0,
 		paused = false,
+		spawn_cooldown = 48.0,
 
 		// default overwrites
 		player = player_default,
 		enemies = make(map[string]Enemy),
-		pickup_items = make(map[string]Pickup_Item),
+		weapon_pickups = make(map[string]Weapon_Pickup),
 	}
-
-
+	SpawnEnemies() // init spawn of enemies, spawn_timer gets set to timer init
 
 
 	// TODO: make a forloop to create some enemies, for some reason only 1 is showing up on screen?, might all be spawning on top of each other
-	for _ in 0..<100 {
-		//fmt.println(i)
-		enemy := CreateEnemy()
-		g_mem.enemies[enemy.name] = enemy
 
-	}
 
 	game_hot_reloaded(g_mem)
 }

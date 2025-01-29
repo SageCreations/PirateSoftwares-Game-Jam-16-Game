@@ -10,7 +10,7 @@ Object :: struct {
     speed: f32,
     rotation: f32,
     hitbox: Circle,
-    id: i32,
+    id: string,
     name: string,
 }
 
@@ -31,6 +31,8 @@ Circle :: struct {
 IsColliding :: proc(obj1: Circle, obj2: Circle) -> bool {
     return rl.CheckCollisionCircles(obj1.center, obj1.radius, obj2.center, obj2.radius)
 }
+
+
 
 // Draws the hitbox outline in green
 DrawCollider :: proc(circle: Circle) {

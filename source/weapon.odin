@@ -5,10 +5,11 @@ import "core:math/rand"
 import "core:fmt"
 
 WeaponType :: enum uint {
-    Finger      = 0,
-    Crossbow    = 1,
-    Lazer       = 2,
-    Machinegun  = 3,
+    None        = 0,
+    Finger      = 1,
+    Crossbow    = 2,
+    Lazer       = 3,
+    Machinegun  = 4,
 }
 
 Weapon :: struct {
@@ -21,37 +22,33 @@ Weapon :: struct {
 }
 
 Weapon_Pickup :: struct {
-    using pickup: Pickup_Item,
-    type: WeaponType,
-    level: i32,
+    using item: Pickup_Item,
+    weapon: Weapon,
 }
 
 CreateWeapon :: proc () -> Weapon {
-    weaponType := rand.int_max(len(WeaponType))
+    weaponType := rand.int_max(len(WeaponType)-1)+1
     weapon_texture: rl.Texture2D
     w_bullet_texture: rl.Texture2D
-    weapon_name: string
+    weapon_name:= "weapon"
     weapon_damage: i32 = 30 //TODO: balance this later
-    weapon_level: i32 = rand.int31_max(2)+1
+    weapon_level: i32 = (rand.int31_max(100)+1 <=70) ? 1 : 2
     switch WeaponType(weaponType) {
+    case .None:
     case .Finger:
         weapon_texture = rl.LoadTexture("assets/FingerGun.png")
         w_bullet_texture = rl.LoadTexture("")
-        weapon_name = "Finger"
     case .Crossbow:
         weapon_texture = rl.LoadTexture("assets/CrossBow.png")
         w_bullet_texture = rl.LoadTexture("")
-        weapon_name = "Crossbow"
     case .Lazer:
         weapon_texture = rl.LoadTexture("assets/Edge_Chainsaw.png")
         w_bullet_texture = rl.LoadTexture("")
-        weapon_name = "Lazer"
     case .Machinegun:
         weapon_texture = rl.LoadTexture("assets/MGun.png")
         w_bullet_texture = rl.LoadTexture("")
-        weapon_name = "Machine gun"
     }
-    fmt.printfln("||||| Weapon name: %s", weapon_name)
+
     return Weapon{
         type            = WeaponType(weaponType),
         texture         = weapon_texture,
@@ -62,21 +59,86 @@ CreateWeapon :: proc () -> Weapon {
     }
 }
 
-DrawWeaponPickup :: proc(wp: ^Weapon_Pickup) {
+CreateWeaponPickup :: proc(pos: rl.Vector2, wp: Weapon = Weapon{}) -> Weapon_Pickup {
+    // hitbox radius needs to be about 10/15 to
+    id := rand.int31_max(10000000)
+    weapon_id := fmt.aprintf("weapon-%d", id)
+    weapon_obj: Weapon
+    if wp.type == .None {
+        weapon_obj = CreateWeapon()
+    } else {
+        weapon_obj = wp
+    }
 
+    return Weapon_Pickup{
+        id = weapon_id,
+        name = "weapon",
+        position = pos,
+        hitbox = Circle{pos, 15.0},
+        weapon = weapon_obj,
+        despawn_timer = g_mem.timer,
+    }
+}
+
+DrawWeaponPickup :: proc(wp: ^Weapon_Pickup) {
+    weapon_tint: rl.Color = GetWeaponTint(wp.weapon.level)
+    rl.DrawTextureV(wp.weapon.texture, rl.Vector2{wp.position.x - f32(wp.weapon.texture.width/2), wp.position.y - f32(wp.weapon.texture.width/2)}, weapon_tint)
+    if DEBUG_MODE {
+        DrawCollider(wp.hitbox)
+    }
+}
+
+GetWeaponTint :: proc(level: i32) -> rl.Color {
+    tint: rl.Color
+    switch level {
+    case 1:
+        tint = rl.WHITE
+    case 2:
+        tint = rl.PINK
+    case 3:
+        tint = rl.YELLOW
+    }
+    return tint
 }
 
 testWeaponInventory :: proc() -> [5]Weapon {
-//random ints for testing TODO: delete late
     testing_inven: [5]Weapon = {}
     for i in 0..<5 {
-        //TODO: used the rand-x and rand_y for pickup testing
-    //        rand_x := rand.float32_range(g_mem.player.position.x-500, g_mem.player.position.x+500)
-    //        rand_y := rand.float32_range(g_mem.player.position.y-500, g_mem.player.position.y+500)
         weapon := CreateWeapon()
-        fmt.printfln("Weapon: %v", weapon)
+        //fmt.printfln("Weapon: %v", weapon)
         testing_inven[i] = weapon
     }
     return testing_inven
 }
 
+GetPickupPrompt :: proc(wp: Weapon, isHUD: bool = false) -> cstring {
+    name: cstring
+    switch wp.type {
+    case .None:
+        name = "Pistol"
+    case .Finger:
+        name = "Finger Gun"
+    case .Crossbow:
+        name = "Crossbow"
+    case .Lazer:
+        name = "Lazer Gun"
+    case .Machinegun:
+        name = "Machine Gun"
+    }
+
+    if isHUD {
+        return fmt.ctprintf("%s - Level %d", name, wp.level)
+    }
+    return fmt.ctprintf("Pickup Lvl.%d - %s", wp.level, name)
+}
+
+
+WeaponToInventory :: proc(wp: ^Weapon) -> bool {
+    for &item in g_mem.player.inventory {
+        if item.type == .None {
+            item = wp^
+            return true
+        }
+    }
+    return false
+}

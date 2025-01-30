@@ -43,6 +43,7 @@ Game_Memory :: struct {
 	player: Player,
 	enemies: map[string]Enemy,
 	pickup_items: map[string]Pickup_Item,
+  bullet : Bullet,
 }
 
 g_mem: ^Game_Memory
@@ -148,6 +149,15 @@ game_init :: proc() {
 		},
 		enemies = make(map[string]Enemy),
 		pickup_items = make(map[string]Pickup_Item),
+    
+    //Added bullet section in this portion
+    bullet = {
+      bullet_pos = rl.Vector2{0,0},
+      bullet_speed = 4,
+      bullet_rotation = 0,
+      bullet_box = {10, cast(c.float)(rl.GetScreenHeight() / 2.0 - 30), 80, 80}
+
+    },
 	}
 
 

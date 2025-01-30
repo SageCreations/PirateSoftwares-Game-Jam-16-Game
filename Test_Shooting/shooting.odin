@@ -1,5 +1,5 @@
 package shooting
-
+//doing this just to have access via terminal
 import "core:c"
 import "core:fmt"
 import rl "vendor:raylib"

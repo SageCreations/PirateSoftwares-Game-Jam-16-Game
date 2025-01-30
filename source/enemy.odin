@@ -149,7 +149,12 @@ DamageEnemy :: proc(enemy: ^Enemy, dmg: i32) {
     enemy.health -= dmg
     if enemy.health <= 0 {
         enemy.is_dead = true
+        if enemy.id == g_mem.boss_id {
+            g_mem.is_win = true
+            g_mem.scene = .Ending
+        }
     }
+
 }
 
 

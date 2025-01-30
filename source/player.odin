@@ -17,6 +17,8 @@ Player :: struct {
     invuln_time_start: f32,
     is_dead: bool,
     indicator: rl.Texture2D,
+    shot_at_start: f32,
+    can_shoot: bool,
 }
 
 player_update :: proc(player: ^Player, delta_time: f32) {
@@ -87,6 +89,16 @@ player_update :: proc(player: ^Player, delta_time: f32) {
                 g_mem.weapon_pickups[wp_pickup.id] = wp_pickup
             }
         }
+
+        // shoot button
+        //Adding this for bullet being is_shooting
+        if player.can_shoot == true && rl.IsMouseButtonDown(.LEFT)  {
+            player.can_shoot = false
+            player.shot_at_start = g_mem.timer
+            // TODO: spawn bullet
+            bullet := CreateBullet(&player.weapon)
+            g_mem.bullets[bullet.id] = bullet
+        }
     }
 
     // move player
@@ -100,8 +112,11 @@ player_update :: proc(player: ^Player, delta_time: f32) {
 
 player_draw :: proc(player: ^Player) {
     // player texture
-    player_tint: rl.Color = (player.invuln) ? rl.RED : rl.WHITE
-    rl.DrawTextureEx(player.texture, rl.Vector2{player.position.x - f32(player.texture.width/2), player.position.y - f32(player.texture.width/2)}, 0, 1, player_tint)
+    player_tint: rl.Color = (player.invuln) ? rl.RED : rl.BLACK
+    rl.DrawRectangleV(player.position-8, {16,16}, player_tint)
+    rl.DrawRectangleV(player.position-7, {14,14}, rl.DARKPURPLE)
+    //rl.DrawRectangleLines(i32(player.position.x-8), i32(player.position.y-8), 16, 16, player_tint)
+    //rl.DrawTextureEx(player.texture, rl.Vector2{player.position.x - f32(player.texture.width/2), player.position.y - f32(player.texture.width/2)}, 0, 1, player_tint)
     if DEBUG_MODE {
         DrawCollider(player.hitbox)
     }
@@ -123,21 +138,23 @@ player_draw :: proc(player: ^Player) {
         angleDegrees,
         rl.BLUE,
     )
-
+    player.weapon.pos = rl.Vector2{player.position.x + rotatedOffsetX, player.position.y + rotatedOffsetY}
+    rex := rl.Rectangle{ player.position.x + rotatedOffsetX, player.position.y + rotatedOffsetY, f32(player.weapon.texture.width), f32(player.weapon.texture.height) }, // destination
     // player's weapon
     rl.DrawTexturePro(
         player.weapon.texture,
         rl.Rectangle{ 0, 0, f32(player.weapon.texture.width), f32(player.weapon.texture.height) }, // source
-        rl.Rectangle{ player.position.x + rotatedOffsetX, player.position.y + rotatedOffsetY, f32(player.weapon.texture.width), f32(player.weapon.texture.height) }, // destination
+        rex, // destination
         rl.Vector2{ f32(player.weapon.texture.width/2), f32(player.weapon.texture.height/2) }, // pivot = center
         angleDegrees,
         GetWeaponTint(player.weapon.level),
     )
+    player.weapon.rotation = angleDegrees // update weapon's rotation to use for bullet spawning
 }
 
 DamagePlayer :: proc(player: ^Player) {
     if !player.invuln {
-        player.health -= 30
+        player.health -= 1
         player.invuln = true
         player.invuln_time_start = g_mem.timer
     }
@@ -172,12 +189,12 @@ BossIndicator :: proc() {
 
     // player's weapon
     rl.DrawTexturePro(
-    g_mem.player.indicator,
-    rl.Rectangle{ 0, 0, f32(g_mem.player.indicator.width), f32(g_mem.player.indicator.height) }, // source
-    rl.Rectangle{ g_mem.player.position.x + rotatedOffsetX, g_mem.player.position.y + rotatedOffsetY, f32(g_mem.player.indicator.width), f32(g_mem.player.indicator.height) }, // destination
-    rl.Vector2{ f32(g_mem.player.indicator.width/2), f32(g_mem.player.indicator.height/2) }, // pivot = center
-    angleDegrees,
-    rl.WHITE,
+        g_mem.player.indicator,
+        rl.Rectangle{ 0, 0, f32(g_mem.player.indicator.width), f32(g_mem.player.indicator.height) }, // source
+        rl.Rectangle{ g_mem.player.position.x + rotatedOffsetX, g_mem.player.position.y + rotatedOffsetY, f32(g_mem.player.indicator.width), f32(g_mem.player.indicator.height) }, // destination
+        rl.Vector2{ f32(g_mem.player.indicator.width/2), f32(g_mem.player.indicator.height/2) }, // pivot = center
+        angleDegrees,
+        rl.WHITE,
     )
 }
 

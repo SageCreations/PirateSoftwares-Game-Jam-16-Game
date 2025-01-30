@@ -5,6 +5,7 @@ Some important procedures are:
 - game_init_window: Opens the window
 - game_init: Sets up the game state
 - game_update: Run once per frame
+- game_should_close: For stopping your game when close button is pressed
 - game_shutdown: Shuts down game and frees memory
 - game_shutdown_window: Closes window
 
@@ -60,6 +61,8 @@ update :: proc() {
 	switch g_mem.scene {
 	case .Title:
 
+	case .Rules:
+
 	case .Settings:
 
 	case .Gameplay:
@@ -81,6 +84,12 @@ update :: proc() {
 			// check if its time to spawn enemies
 			if g_mem.timer >= g_mem.spawn_timer + g_mem.spawn_cooldown {
 				SpawnEnemies()
+			}
+
+			// check if player can shoot
+			if g_mem.timer >= g_mem.player.shot_at_start + g_mem.player.weapon.shoot_cooldown {
+				g_mem.player.can_shoot = true
+				g_mem.player.shot_at_start = 0.0
 			}
 
 			player_update(&g_mem.player, rl.GetFrameTime())
@@ -134,6 +143,10 @@ update :: proc() {
 		}
 	case .Ending:
 	}
+
+	if rl.IsKeyPressed(.ESCAPE) {
+		g_mem.run = false
+	}
 }
 
 draw :: proc() {
@@ -146,7 +159,12 @@ draw :: proc() {
 	switch g_mem.scene {
 	case .Title:
 	case .Settings:
+	case .Rules:
 	case .Gameplay:
+		if g_mem.end_game {
+			BossIndicator()
+		}
+
 		// player draws
 		player_draw(&g_mem.player)
 		// enemy draws
@@ -175,12 +193,32 @@ draw :: proc() {
 	rl.BeginMode2D(ui_camera())
 	switch g_mem.scene {
 	case .Title:
-		if rl.GuiButton(rl.Rectangle{10, 10, 200, 50}, "Settings") {
+		// Game Title
+		rl.DrawText("Place Holder", 10, 10, 100, rl.WHITE)
+		// Settings button
+		if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()-210), 10, 200, 50}, "Settings") {
 			g_mem.scene = .Settings
 		}
-		if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-100, f32(rl.GetScreenHeight()/2)-25, 200, 50}, "Start Game") {
+		// Rules button
+		if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()-210), 75, 200, 50}, "Rules") {
+			g_mem.scene = .Rules
+		}
+		// start button
+		if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-100, f32(rl.GetScreenHeight()-100), 200, 50}, "Start Game") {
 			g_mem.scene = .Gameplay
 		}
+		// controls explanation
+		rl.DrawText("Controls:", 10, 200, 40, rl.WHITE)
+		rl.DrawText("Movement: WASD or arrow keys", 20, 250, 20, rl.WHITE)
+		rl.DrawText("Inventory switch: Q for leftward selection and E for rightward selection", 20, 275, 20, rl.WHITE)
+		rl.DrawText("Pickup Weapon: F key", 20, 300, 20, rl.WHITE)
+		rl.DrawText("Drop Selected Weapon: R key", 20, 325, 20, rl.WHITE)
+		rl.DrawText("Pause Game: P key", 20, 350, 20, rl.WHITE)
+	case .Rules:
+		if rl.GuiButton(rl.Rectangle{10, 10, 200, 50}, "Back") {
+			g_mem.scene = .Title
+		}
+		rl.DrawTextureEx(g_mem.rules_texture, {0,0}, 0, 1, rl.WHITE)
 	case .Settings:
 		if rl.GuiButton(rl.Rectangle{10, 10, 200, 50}, "Back") {
 			g_mem.scene = .Title
@@ -203,8 +241,6 @@ draw :: proc() {
 			rl.DrawText(FormatTimer(g_mem.timer), (rl.GetScreenWidth()/2)-50, 5, 50, rl.WHITE)
 		} else {
 			rl.DrawText("15:00", (rl.GetScreenWidth()/2)-50, 5, 50, rl.WHITE)
-			// draw boss indicator
-			BossIndicator()
 		}
 
 		// Inventory HUD
@@ -223,9 +259,18 @@ draw :: proc() {
 		rl.DrawRectangleLinesEx(rl.Rectangle{ (f32(rl.GetScreenWidth()/2)-250) + f32(g_mem.player.selected * 100), f32(rl.GetScreenHeight()-100), 100, 100 }, 5, rl.GREEN)
 		rl.DrawText(GetPickupPrompt(g_mem.player.inventory[g_mem.player.selected], true), rl.GetScreenWidth()/2-250, rl.GetScreenHeight()-125, 20, rl.WHITE)
 
+		//Health HUD
+		for i := g_mem.player.health; i > 0; i-=1 {
+			scaler: i32 = i32(i) * 50
+			rl.DrawRectangleV({f32(rl.GetScreenWidth()) - f32(scaler), 20.0}, {40, 40}, rl.RED)
+		}
+
 		// pause menu
 		if g_mem.paused {
 			rl.DrawRectangle(10, 10, rl.GetScreenWidth()-20, rl.GetScreenHeight()-20, rl.DARKGRAY)
+			if rl.GuiButton(rl.Rectangle{20, 20, 200, 50}, "Back") {
+				g_mem.paused = !g_mem.paused
+			}
 			if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 50, 400, 100}, "Restart") {
 				game_init(restart=true)
 			}
@@ -234,11 +279,23 @@ draw :: proc() {
 			}
 		}
 	case .Ending:
-		if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 50, 400, 100}, "Try Again") {
-			game_init(restart=true)
-		}
-		if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 200, 400, 100}, "Back to Title") {
-			game_init(false)
+		if g_mem.is_win {
+			rl.DrawText("Congratulations!", rl.GetScreenWidth()/2-410, 70, 100, rl.GREEN)
+			rl.DrawText("You Won!!!", rl.GetScreenWidth()/2-240, 170, 100, rl.GREEN)
+			if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 300, 400, 100}, "Play Again?") {
+				game_init(restart=true)
+			}
+			if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 450, 400, 100}, "Back to Title") {
+				game_init(false)
+			}
+		} else {
+			rl.DrawText("Game Over...", rl.GetScreenWidth()/2-270, 70, 100, rl.RED)
+			if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 300, 400, 100}, "Try Again") {
+				game_init(restart=true)
+			}
+			if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 450, 400, 100}, "Back to Title") {
+				game_init(false)
+			}
 		}
 	}
 	rl.EndMode2D()
@@ -247,18 +304,18 @@ draw :: proc() {
 }
 
 @(export)
-game_update :: proc() -> bool {
+game_update :: proc() {
 	update()
 	draw()
-	return !rl.WindowShouldClose()
 }
 
 @(export)
 game_init_window :: proc() {
 	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
 	rl.InitWindow(1280, 720, "Placeholder Name")
-	//rl.SetWindowPosition(200, 200)
+	rl.SetWindowPosition(200, 200)
 	rl.SetTargetFPS(60)
+	rl.SetExitKey(nil)
 
 	// init global Settings here
 	sound_level = 0.7
@@ -266,8 +323,6 @@ game_init_window :: proc() {
 
 @(export)
 game_init :: proc(restart: bool = false) {
-
-
 // defaults to overwrite
 	player_default := Player{
 		position = rl.Vector2{0, 0},
@@ -278,16 +333,17 @@ game_init :: proc(restart: bool = false) {
 		id = "player-1",
 		name = "player",
 		offset = rl.Vector2{16, 0},
-		indicator_offset = rl.Vector2{20, 0},
+		indicator_offset = rl.Vector2{26, 0},
 		weapon = Weapon{
-			type = .Finger,
-			name = "Finger Gun",
-			texture = rl.LoadTexture("assets/FingerGun.png"),
-			bullet_texture = rl.LoadTexture("assets/round_cat.png"),
-			damage = 34,
-			level = 1,
+			type = .None,
+			name = "weapon",
+			texture = rl.Texture2D{},
+			bullet_color = rl.GREEN,
+			damage = 15,
+			level = 0,
+			shoot_cooldown = 0.7,
 		},
-		health = 100,
+		health = 4,
 		gamepad = 0,
 		inventory = {},
 		selected = 0,
@@ -295,11 +351,13 @@ game_init :: proc(restart: bool = false) {
 		invuln_time_start = 0.0,
 		is_dead = false,
 		indicator = rl.LoadTexture("assets/indicator.png"),
+		can_shoot = true,
 	}
 
 	g_mem = new(Game_Memory)
 
 	g_mem^ = Game_Memory {
+		run=true,
 		// GameManger
 		scene = (restart) ? .Gameplay : .Title,
 		timer = 0.0,
@@ -307,12 +365,17 @@ game_init :: proc(restart: bool = false) {
 		paused = false,
 		end_game = false,
 		spawn_cooldown = 48.0,
+		is_win = false,
 
 		// default overwrites
 		player = player_default,
 		enemies = make(map[string]Enemy),
 		boss_id = "",
 		weapon_pickups = make(map[string]Weapon_Pickup),
+		bullets = make(map[string]Bullet),
+
+		// textures
+		rules_texture = rl.LoadTexture("assets/Rules.png"),
 	}
 	SpawnEnemies() // init spawn of enemies, spawn_timer gets set to timer init
 
@@ -321,6 +384,18 @@ game_init :: proc(restart: bool = false) {
 
 
 	game_hot_reloaded(g_mem)
+}
+
+@(export)
+game_should_run :: proc() -> bool {
+	when ODIN_OS != .JS {
+	// Never run this proc in browser. It contains a 16 ms sleep on web!
+		if rl.WindowShouldClose() {
+			return false
+		}
+	}
+
+	return g_mem.run
 }
 
 @(export)
@@ -347,9 +422,9 @@ game_memory_size :: proc() -> int {
 game_hot_reloaded :: proc(mem: rawptr) {
 	g_mem = (^Game_Memory)(mem)
 
-	// Here you can also set your own global variables. A good idea is to make
-	// your global variables into pointers that point to something inside
-	// `g_mem`.
+// Here you can also set your own global variables. A good idea is to make
+// your global variables into pointers that point to something inside
+// `g_mem`.
 }
 
 @(export)

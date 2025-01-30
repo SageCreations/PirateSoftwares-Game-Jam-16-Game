@@ -14,17 +14,25 @@ Game_Memory :: struct {
     end_game: bool,
     spawn_timer: f32,
     spawn_cooldown: f32,
+    is_win: bool,
 
     // Objects
     player: Player,
     enemies: map[string]Enemy,
     boss_id: string,
     weapon_pickups: map[string]Weapon_Pickup,
+    bullets: map[string]Bullet,
+
+    //textures
+    rules_texture: rl.Texture2D,
+
+    run: bool,
 }
 
 
 SceneState :: enum {
     Title,
+    Rules,
     Settings,
     Gameplay,
     Ending,

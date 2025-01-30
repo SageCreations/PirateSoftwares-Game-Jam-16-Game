@@ -15,10 +15,13 @@ WeaponType :: enum uint {
 Weapon :: struct {
     type: WeaponType,
     texture: rl.Texture2D,
-    bullet_texture: rl.Texture2D,
+    bullet_color: rl.Color,
     name: string,
     damage: i32,
     level: i32,
+    shoot_cooldown: f32,
+    rotation: f32,
+    pos: rl.Vector2,
 }
 
 Weapon_Pickup :: struct {
@@ -26,36 +29,50 @@ Weapon_Pickup :: struct {
     weapon: Weapon,
 }
 
+
+
 CreateWeapon :: proc () -> Weapon {
     weaponType := rand.int_max(len(WeaponType)-1)+1
     weapon_texture: rl.Texture2D
-    w_bullet_texture: rl.Texture2D
+    w_bullet_color: rl.Color
     weapon_name:= "weapon"
-    weapon_damage: i32 = 30 //TODO: balance this later
+    weapon_damage: i32
     weapon_level: i32 = (rand.int31_max(100)+1 <=70) ? 1 : 2
+    shoot_cd: f32
     switch WeaponType(weaponType) {
     case .None:
+        weapon_damage = 15
+        shoot_cd = 0.7
     case .Finger:
         weapon_texture = rl.LoadTexture("assets/FingerGun.png")
-        w_bullet_texture = rl.LoadTexture("")
+        w_bullet_color = rl.SKYBLUE
+        weapon_damage = 25
+        shoot_cd = 1.5
     case .Crossbow:
         weapon_texture = rl.LoadTexture("assets/CrossBow.png")
-        w_bullet_texture = rl.LoadTexture("")
+        w_bullet_color = rl.YELLOW
+        weapon_damage = 33
+        shoot_cd = 1.5
     case .Lazer:
         weapon_texture = rl.LoadTexture("assets/Edge_Chainsaw.png")
-        w_bullet_texture = rl.LoadTexture("")
+        w_bullet_color = rl.DARKGRAY
+        weapon_damage = 50
+        shoot_cd = 0.3
     case .Machinegun:
         weapon_texture = rl.LoadTexture("assets/MGun.png")
-        w_bullet_texture = rl.LoadTexture("")
+        w_bullet_color = rl.WHITE
+        weapon_damage = 15
+        shoot_cd = 0.3
     }
 
     return Weapon{
         type            = WeaponType(weaponType),
         texture         = weapon_texture,
-        bullet_texture  = w_bullet_texture,
+        bullet_color    = w_bullet_color,
         name            = weapon_name,
         damage          = weapon_damage,
         level           = weapon_level,
+        shoot_cooldown = shoot_cd,
     }
 }
 
@@ -125,7 +142,7 @@ GetPickupPrompt :: proc(wp: Weapon, isHUD: bool = false) -> cstring {
     case .Crossbow:
         name = "Crossbow"
     case .Lazer:
-        name = "Lazer Gun"
+        name = "Chainsaw"
     case .Machinegun:
         name = "Machine Gun"
     }
@@ -145,4 +162,61 @@ WeaponToInventory :: proc(wp: ^Weapon) -> bool {
         }
     }
     return false
+}
+
+
+// BULLET STUFF================================================================
+//Bullet struct
+Bullet :: struct {
+    using obj: Object,
+    despawn_timer: f32,
+    bullet_box: Circle,
+    color: rl.Color,
+}
+
+CreateBullet :: proc(wp: ^Weapon) -> Bullet {
+    id := rand.int31_max(10000000)
+    bullet_id := fmt.aprintf("bullet-%d", id)
+    d_time: f32
+    box: Circle
+    spd: f32
+
+    switch wp.type {
+    case .None:
+        d_time = 7.0
+        box = Circle{{}, 8}
+        spd = 5.0
+    case .Finger:
+        d_time = 2.0
+        box = Circle{}
+        spd = 10.0
+    case .Crossbow:
+        d_time = 5.0
+        box = Circle{}
+        spd = 20.0
+    case .Lazer:
+        d_time = 0.2
+        box = Circle{}
+        spd = 0.0
+    case .Machinegun:
+        d_time = 7.0
+        box = Circle{}
+        spd = 12.0
+    }
+    return Bullet {
+        id = bullet_id,
+        position = wp.pos,
+        despawn_timer = d_time,
+        bullet_box = box,
+        rotation = wp.rotation,
+        color = wp.bullet_color,
+    }
+}
+
+UpdateBullet :: proc(bullet: ^Bullet) {
+    // TODO: move bullet in the direction of the rotation it spawned
+}
+
+DrawBullet :: proc(bullet: ^Bullet) {
+    // TODO: draw the bullet using rectangle
 }

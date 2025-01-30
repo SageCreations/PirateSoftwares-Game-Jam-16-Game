@@ -14,11 +14,11 @@ USE_TRACKING_ALLOCATOR :: #config(USE_TRACKING_ALLOCATOR, false)
 
 
 main :: proc() {
-	// Set working dir to dir of executable.
+// Set working dir to dir of executable.
 	exe_path := os.args[0]
 	exe_dir := filepath.dir(string(exe_path), context.temp_allocator)
 	os.set_current_directory(exe_dir)
-	
+
 	when USE_TRACKING_ALLOCATOR {
 		default_allocator := context.allocator
 		tracking_allocator: Tracking_Allocator
@@ -42,11 +42,10 @@ main :: proc() {
 	context.logger = logger
 
 	game.game_init_window()
-	game.game_init(false)
+	game.game_init()
 
-	window_open := true
-	for window_open {
-		window_open = game.game_update()
+	for game.game_should_run() {
+		game.game_update()
 
 		when USE_TRACKING_ALLOCATOR {
 			for b in tracking_allocator.bad_free_array {

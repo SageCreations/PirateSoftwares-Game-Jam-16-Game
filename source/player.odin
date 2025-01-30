@@ -17,9 +17,11 @@ Bullet :: struct {
 	using obj:     Object,
 	despawn_timer: f32,
 	is_shooting:   bool,
-}
+  bullet_box: rl.Rectangle =  {10, cast(c.float)(rl.GetScreenHeight() / 2.0 - 30), 80, 80},
 
-player_update :: proc(player: ^Player, delta_time: f32, bullet: ^Bullet) {
+}
+//bullet: ^Bullet
+player_update :: proc(player: ^Player, delta_time: f32) {
 	input: rl.Vector2
 
 

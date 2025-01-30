@@ -11,12 +11,14 @@ Game_Memory :: struct {
     timer: f32,
     timer_count: i32,
     paused: bool,
+    end_game: bool,
     spawn_timer: f32,
     spawn_cooldown: f32,
 
     // Objects
     player: Player,
     enemies: map[string]Enemy,
+    boss_id: string,
     weapon_pickups: map[string]Weapon_Pickup,
 }
 
@@ -48,7 +50,7 @@ CheckForWeaponUpgrades :: proc() {
         switch inventory_item.type {
         case .None:
             // tally_array[0] reserved for none slot, nothing should be added to this.
-            fmt.printfln("no weapon in slot")
+            //fmt.printfln("no weapon in slot")
         case .Finger:
             tally_map[fmt.aprintf("1-%d", inventory_item.level)] += 1
         case .Crossbow:
@@ -59,7 +61,7 @@ CheckForWeaponUpgrades :: proc() {
             tally_map[fmt.aprintf("4-%d", inventory_item.level)] += 1
         }
     }
-    fmt.printfln("tally arrray: %v", tally_map)
+    //fmt.printfln("tally arrray: %v", tally_map)
     for key, tally in tally_map {
         if tally >= 3 {
             key_split := strings.split(key, "-")

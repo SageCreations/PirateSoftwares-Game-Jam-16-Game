@@ -82,7 +82,11 @@ CreateWeaponPickup :: proc(pos: rl.Vector2, wp: Weapon = Weapon{}) -> Weapon_Pic
 
 DrawWeaponPickup :: proc(wp: ^Weapon_Pickup) {
     weapon_tint: rl.Color = GetWeaponTint(wp.weapon.level)
-    rl.DrawTextureV(wp.weapon.texture, rl.Vector2{wp.position.x - f32(wp.weapon.texture.width/2), wp.position.y - f32(wp.weapon.texture.width/2)}, weapon_tint)
+    rl.DrawTextureV(
+        wp.weapon.texture,
+        rl.Vector2{wp.position.x - f32(wp.weapon.texture.width/2), wp.position.y - f32(wp.weapon.texture.width/2)},
+        weapon_tint,
+    )
     if DEBUG_MODE {
         DrawCollider(wp.hitbox)
     }

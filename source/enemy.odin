@@ -11,8 +11,7 @@ Enemy :: struct {
 }
 
 
-CreateEnemy :: proc() -> Enemy {
-    id := rand.int31_max(899999)+100000
+GetRandomPosition :: proc() -> rl.Vector2 {
     rand_y: f32 = 0.0
     rand_x := rand.float32_range(g_mem.player.position.x - f32(1280), g_mem.player.position.x + f32(1280))
     if rand_x < g_mem.player.position.x - f32(1280/2) || rand_x > g_mem.player.position.x + f32(1280/2) {
@@ -25,17 +24,36 @@ CreateEnemy :: proc() -> Enemy {
         }
 
     }
+    return rl.Vector2{rand_x, rand_y}
+}
 
-    enemy_texture := rl.LoadTexture("assets/enemy_placeholder.png")
+CreateEnemy :: proc() -> Enemy {
+    id := rand.int31_max(899999)+100000
+    pos := GetRandomPosition()
+
     return Enemy{
-        position = rl.Vector2{rand_x, rand_y},
-        texture =enemy_texture,
+        position = GetRandomPosition(),
         speed = 0.5,
         rotation = 0,
-        hitbox = Circle{{rand_x+f32(enemy_texture.width/2), rand_y+f32(enemy_texture.height/2)}, 4.0},
+        hitbox = Circle{pos, 4.0},
         id = fmt.aprintf("enemy-%d", id),
         name = "enemy",
         health = 100,
+        is_dead = false,
+    }
+}
+
+CreateBoss :: proc() -> Enemy {
+    id := rand.int31_max(899999)+100000
+    pos := GetRandomPosition()
+    return Enemy {
+        position = pos,
+        speed = 0.7,
+        rotation = 0,
+        hitbox = Circle{pos, 25},
+        id = fmt.aprintf("enemy-%d", id),
+        name = "enemy",
+        health = 10000,
         is_dead = false,
     }
 }
@@ -75,7 +93,14 @@ UpdateEnemy :: proc(enemy: ^Enemy) {
 
 DrawEnemy :: proc(enemy: ^Enemy) {
     //rl.DrawRectangleV(enemy.position, {10, 10}, rl.RED) //TODO: do the same for pick up items
-    rl.DrawTextureEx(enemy.texture, rl.Vector2{enemy.position.x-f32(enemy.texture.width/2), enemy.position.y-f32(enemy.texture.height/2)}, enemy.rotation, 1, rl.WHITE)
+    if enemy.id == g_mem.boss_id {
+        rl.DrawCircleV(enemy.position, enemy.hitbox.radius, rl.ORANGE)
+        rl.DrawCircleLinesV(enemy.position, enemy.hitbox.radius+1, rl.RED)
+    } else {
+        rl.DrawCircleV(enemy.position, enemy.hitbox.radius, rl.ORANGE)
+    }
+    //rl.DrawTextureEx(enemy.texture, rl.Vector2{enemy.position.x-f32(enemy.texture.width/2), enemy.position.y-f32(enemy.texture.height/2)}, enemy.rotation, 1, rl.WHITE)
+
     if DEBUG_MODE {
         DrawCollider(enemy.hitbox)
     }

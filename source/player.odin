@@ -8,6 +8,7 @@ Player :: struct {
     using obj: Object,
     weapon: Weapon,
     offset: rl.Vector2,
+    indicator_offset: rl.Vector2,
     health: i32,
     gamepad: i32,
     inventory: [5]Weapon,
@@ -15,6 +16,7 @@ Player :: struct {
     invuln: bool,
     invuln_time_start: f32,
     is_dead: bool,
+    indicator: rl.Texture2D,
 }
 
 player_update :: proc(player: ^Player, delta_time: f32) {
@@ -156,6 +158,27 @@ PlayerCollision :: proc(player: ^Player, other: ^Object) {
         // TODO: prompt user for pickup
 
     }
+}
+
+BossIndicator :: proc() {
+    // boss direction
+    direction: rl.Vector2 = g_mem.enemies[g_mem.boss_id].position - g_mem.player.position
+    angleRadians: f32 = math.atan2_f32(direction.y, direction.x)
+    angleDegrees: f32 = angleRadians * rl.RAD2DEG
+
+    // 3. Rotate the offset vector to create the orbiting effect
+    rotatedOffsetX: f32 = g_mem.player.indicator_offset.x * math.cos_f32(angleRadians) - g_mem.player.indicator_offset.y * math.sin_f32(angleRadians)
+    rotatedOffsetY: f32 = g_mem.player.indicator_offset.x * math.sin_f32(angleRadians) + g_mem.player.indicator_offset.y * math.cos_f32(angleRadians)
+
+    // player's weapon
+    rl.DrawTexturePro(
+    g_mem.player.indicator,
+    rl.Rectangle{ 0, 0, f32(g_mem.player.indicator.width), f32(g_mem.player.indicator.height) }, // source
+    rl.Rectangle{ g_mem.player.position.x + rotatedOffsetX, g_mem.player.position.y + rotatedOffsetY, f32(g_mem.player.indicator.width), f32(g_mem.player.indicator.height) }, // destination
+    rl.Vector2{ f32(g_mem.player.indicator.width/2), f32(g_mem.player.indicator.height/2) }, // pivot = center
+    angleDegrees,
+    rl.WHITE,
+    )
 }
 
 

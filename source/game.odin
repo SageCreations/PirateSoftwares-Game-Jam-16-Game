@@ -69,6 +69,15 @@ update :: proc() {
 		if !g_mem.paused {
 			g_mem.timer = UpdateTimer(g_mem.timer)
 
+			if !g_mem.end_game && g_mem.timer > 900.00  {
+				g_mem.end_game = true // set end_game flag
+
+				// spawn in boss
+				boss := CreateBoss()
+				g_mem.enemies[boss.id] = boss
+				g_mem.boss_id = boss.id
+			}
+
 			// check if its time to spawn enemies
 			if g_mem.timer >= g_mem.spawn_timer + g_mem.spawn_cooldown {
 				SpawnEnemies()
@@ -89,10 +98,10 @@ update :: proc() {
 
 				if enemy.is_dead {
 					// chance to drop loot
-					if rand.int_max(100)+1 <= 25 {
+					if !g_mem.end_game && rand.int_max(100)+1 <= 25 {
 						pass: bool = true
 						new_item := CreateWeaponPickup(enemy.position)
-
+						// check if enemy died on top of exisiting item to not stack them
 						for _, item in g_mem.weapon_pickups {
 							if IsColliding(new_item.hitbox, item.hitbox) {
 								pass = false
@@ -189,7 +198,14 @@ draw :: proc() {
 			rl.DrawFPS(rl.GetScreenWidth()-30, 5)
 			rl.DrawText(fmt.ctprintf("Enemies Spawned in: %d", len(g_mem.enemies)), 5, 45, 20, rl.WHITE)
 		}
-		rl.DrawText(FormatTimer(g_mem.timer), (rl.GetScreenWidth()/2)-50, 5, 50, rl.WHITE)
+		// timer
+		if !g_mem.end_game {
+			rl.DrawText(FormatTimer(g_mem.timer), (rl.GetScreenWidth()/2)-50, 5, 50, rl.WHITE)
+		} else {
+			rl.DrawText("15:00", (rl.GetScreenWidth()/2)-50, 5, 50, rl.WHITE)
+			// draw boss indicator
+			BossIndicator()
+		}
 
 		// Inventory HUD
 		for index in 0..<5 {
@@ -207,13 +223,14 @@ draw :: proc() {
 		rl.DrawRectangleLinesEx(rl.Rectangle{ (f32(rl.GetScreenWidth()/2)-250) + f32(g_mem.player.selected * 100), f32(rl.GetScreenHeight()-100), 100, 100 }, 5, rl.GREEN)
 		rl.DrawText(GetPickupPrompt(g_mem.player.inventory[g_mem.player.selected], true), rl.GetScreenWidth()/2-250, rl.GetScreenHeight()-125, 20, rl.WHITE)
 
+		// pause menu
 		if g_mem.paused {
 			rl.DrawRectangle(10, 10, rl.GetScreenWidth()-20, rl.GetScreenHeight()-20, rl.DARKGRAY)
 			if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 50, 400, 100}, "Restart") {
 				game_init(restart=true)
 			}
 			if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 200, 400, 100}, "Return to Title") {
-				game_init()
+				game_init(false)
 			}
 		}
 	case .Ending:
@@ -221,7 +238,7 @@ draw :: proc() {
 			game_init(restart=true)
 		}
 		if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 200, 400, 100}, "Back to Title") {
-			game_init()
+			game_init(false)
 		}
 	}
 	rl.EndMode2D()
@@ -245,7 +262,6 @@ game_init_window :: proc() {
 
 	// init global Settings here
 	sound_level = 0.7
-	fmt.printfln("Window Init!")
 }
 
 @(export)
@@ -262,6 +278,7 @@ game_init :: proc(restart: bool = false) {
 		id = "player-1",
 		name = "player",
 		offset = rl.Vector2{16, 0},
+		indicator_offset = rl.Vector2{20, 0},
 		weapon = Weapon{
 			type = .Finger,
 			name = "Finger Gun",
@@ -277,6 +294,7 @@ game_init :: proc(restart: bool = false) {
 		invuln = false,
 		invuln_time_start = 0.0,
 		is_dead = false,
+		indicator = rl.LoadTexture("assets/indicator.png"),
 	}
 
 	g_mem = new(Game_Memory)
@@ -287,11 +305,13 @@ game_init :: proc(restart: bool = false) {
 		timer = 0.0,
 		timer_count = 0,
 		paused = false,
+		end_game = false,
 		spawn_cooldown = 48.0,
 
 		// default overwrites
 		player = player_default,
 		enemies = make(map[string]Enemy),
+		boss_id = "",
 		weapon_pickups = make(map[string]Weapon_Pickup),
 	}
 	SpawnEnemies() // init spawn of enemies, spawn_timer gets set to timer init

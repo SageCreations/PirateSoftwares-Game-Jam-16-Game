@@ -42,7 +42,7 @@ main :: proc() {
 	context.logger = logger
 
 	game.game_init_window()
-	game.game_init()
+	game.game_init(false)
 
 	window_open := true
 	for window_open {

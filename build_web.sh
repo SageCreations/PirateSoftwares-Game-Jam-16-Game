@@ -19,7 +19,7 @@ OUT_DIR="build/web"
 # Setting EMSCRIPTEN_SDK_DIR is optional on some Linux systems, if you've
 # installed emscripten through a package manager, since emcc might then already
 # be in your path.
-EMSCRIPTEN_SDK_DIR="$HOME/repos/emsdk"
+EMSCRIPTEN_SDK_DIR="$HOME/.emscripten/"
 
 mkdir -p $OUT_DIR
 

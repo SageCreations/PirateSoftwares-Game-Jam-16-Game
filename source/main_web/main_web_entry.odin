@@ -28,7 +28,7 @@ web_init :: proc "c" () {
 	web_context = context
 
 	game.game_init_window()
-	game.game_init()
+	game.game_init(false)
 }
 
 @export

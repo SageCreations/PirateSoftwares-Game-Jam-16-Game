@@ -10,8 +10,8 @@ import "core:mem"
 import "core:c"
 import "base:intrinsics"
 
-// This create's bindings to emscriptens implementation of libc memory
-// allocation features.
+// This will create bindings to emscripten's implementation of libc
+// memory allocation features.
 @(default_calling_convention = "c")
 foreign {
 	calloc  :: proc(num, size: c.size_t) -> rawptr ---
@@ -20,21 +20,21 @@ foreign {
 	realloc :: proc(ptr: rawptr, size: c.size_t) -> rawptr ---
 }
 
-aligned_raylib_allocator :: proc "contextless" () -> mem.Allocator {
-	return mem.Allocator{aligned_raylib_allocator_proc, nil}
+emscripten_allocator :: proc "contextless" () -> mem.Allocator {
+	return mem.Allocator{emscripten_allocator_proc, nil}
 }
 
-aligned_raylib_allocator_proc :: proc(
-	allocator_data: rawptr,
-	mode: mem.Allocator_Mode,
-	size, alignment: int,
-	old_memory: rawptr,
-	old_size: int,
-	location := #caller_location
+emscripten_allocator_proc :: proc(
+allocator_data: rawptr,
+mode: mem.Allocator_Mode,
+size, alignment: int,
+old_memory: rawptr,
+old_size: int,
+location := #caller_location
 ) -> (data: []byte, err: mem.Allocator_Error)  {
-	// These aligned alloc procs are almost indentical those in
-	// `_heap_allocator_proc` in `core:os`. Without the proper alignment you
-	// cannot use maps and simd features.
+// These aligned alloc procs are almost indentical those in
+// `_heap_allocator_proc` in `core:os`. Without the proper alignment you
+// cannot use maps and simd features.
 
 	aligned_alloc :: proc(size, alignment: int, zero_memory: bool, old_ptr: rawptr = nil) -> ([]byte, mem.Allocator_Error) {
 		a := max(alignment, align_of(rawptr))
@@ -45,8 +45,8 @@ aligned_raylib_allocator_proc :: proc(
 			original_old_ptr := mem.ptr_offset((^rawptr)(old_ptr), -1)^
 			allocated_mem = realloc(original_old_ptr, c.size_t(space+size_of(rawptr)))
 		} else if zero_memory {
-			// calloc automatically zeros memory, but it takes a number + size
-			// instead of just size.
+		// calloc automatically zeros memory, but it takes a number + size
+		// instead of just size.
 			allocated_mem = calloc(c.size_t(space+size_of(rawptr)), 1)
 		} else {
 			allocated_mem = malloc(c.size_t(space+size_of(rawptr)))

@@ -42,7 +42,8 @@ Game_API :: struct {
 	lib: dynlib.Library,
 	init_window: proc(),
 	init: proc(),
-	update: proc() -> bool,
+	update: proc(),
+	should_run: proc() -> bool,
 	shutdown: proc(),
 	shutdown_window: proc(),
 	memory: proc() -> rawptr,
@@ -58,8 +59,8 @@ load_game_api :: proc(api_version: int) -> (api: Game_API, ok: bool) {
 	mod_time, mod_time_error := os.last_write_time_by_name(GAME_DLL_PATH)
 	if mod_time_error != os.ERROR_NONE {
 		fmt.printfln(
-			"Failed getting last write time of " + GAME_DLL_PATH + ", error code: {1}",
-			mod_time_error,
+		"Failed getting last write time of " + GAME_DLL_PATH + ", error code: {1}",
+		mod_time_error,
 		)
 		return
 	}
@@ -89,13 +90,13 @@ unload_game_api :: proc(api: ^Game_API) {
 		}
 	}
 
-	if os.remove(fmt.tprintf("game_{0}" + DLL_EXT, api.api_version)) != nil {
-		fmt.printfln("Failed to remove game_{0}" + DLL_EXT + " copy", api.api_version)
+	if os.remove(fmt.tprintf(GAME_DLL_DIR + "game_{0}" + DLL_EXT, api.api_version)) != nil {
+		fmt.printfln("Failed to remove {0}game_{1}" + DLL_EXT + " copy", GAME_DLL_DIR, api.api_version)
 	}
 }
 
 main :: proc() {
-	// Set working dir to dir of executable.
+// Set working dir to dir of executable.
 	exe_path := os.args[0]
 	exe_dir := filepath.dir(string(exe_path), context.temp_allocator)
 	os.set_current_directory(exe_dir)
@@ -133,9 +134,8 @@ main :: proc() {
 
 	old_game_apis := make([dynamic]Game_API, default_allocator)
 
-	window_open := true
-	for window_open {
-		window_open = game_api.update()
+	for game_api.should_run() {
+		game_api.update()
 		force_reload := game_api.force_reload()
 		force_restart := game_api.force_restart()
 		reload := force_reload || force_restart
@@ -152,23 +152,23 @@ main :: proc() {
 				force_restart = force_restart || game_api.memory_size() != new_game_api.memory_size()
 
 				if !force_restart {
-					// This does the normal hot reload
+				// This does the normal hot reload
 
-					// Note that we don't unload the old game APIs because that
-					// would unload the DLL. The DLL can contain stored info
-					// such as string literals. The old DLLs are only unloaded
-					// on a full reset or on shutdown.
+				// Note that we don't unload the old game APIs because that
+				// would unload the DLL. The DLL can contain stored info
+				// such as string literals. The old DLLs are only unloaded
+				// on a full reset or on shutdown.
 					append(&old_game_apis, game_api)
 					game_memory := game_api.memory()
 					game_api = new_game_api
 					game_api.hot_reloaded(game_memory)
 				} else {
-					// This does a full reset. That's basically like opening and
-					// closing the game, without having to restart the executable.
-					//
-					// You end up in here if the game requests a full reset OR
-					// if the size of the game memory has changed. That would
-					// probably lead to a crash anyways.
+				// This does a full reset. That's basically like opening and
+				// closing the game, without having to restart the executable.
+				//
+				// You end up in here if the game requests a full reset OR
+				// if the size of the game memory has changed. That would
+				// probably lead to a crash anyways.
 
 					game_api.shutdown()
 					reset_tracking_allocator(&tracking_allocator)
@@ -205,9 +205,9 @@ main :: proc() {
 	free_all(context.temp_allocator)
 	game_api.shutdown()
 	if reset_tracking_allocator(&tracking_allocator) {
-		// This prevents the game from closing without you seeing the memory
-		// leaks. This is mostly needed because I use Sublime Text and my game's
-		// console isn't hooked up into Sublime's console properly.
+	// This prevents the game from closing without you seeing the memory
+	// leaks. This is mostly needed because I use Sublime Text and my game's
+	// console isn't hooked up into Sublime's console properly.
 		libc.getchar()
 	}
 

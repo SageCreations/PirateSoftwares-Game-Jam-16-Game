@@ -84,10 +84,24 @@ UpdateEnemy :: proc(enemy: ^Enemy) {
     enemy.position = (enemy.position - direction)
     enemy.hitbox.center = rl.Vector2{enemy.position.x, enemy.position.y}
 
-    mouse_pos_world2d: rl.Vector2 = rl.GetScreenToWorld2D(rl.GetMousePosition(), game_camera())
-
-    if IsColliding(Circle{mouse_pos_world2d, 5.0}, enemy.hitbox) {
-        DamageEnemy(enemy, 110)  // TODO: testing only, pass in bullet damage later.
+//    mouse_pos_world2d: rl.Vector2 = rl.GetScreenToWorld2D(rl.GetMousePosition(), game_camera())
+//
+//    if IsColliding(Circle{mouse_pos_world2d, 5.0}, enemy.hitbox) {
+//        DamageEnemy(enemy, 110)  // TODO: testing only, pass in bullet damage later.
+//    }
+    // check for bullet collisions
+    for _, &bullet in g_mem.bullets {
+        if rl.CheckCollisionCircleRec(
+            enemy.hitbox.center,
+            enemy.hitbox.radius,
+            rl.Rectangle{bullet.position.x, bullet.position.y, bullet.size.x, bullet.size.y},
+        ) {
+            DamageEnemy(enemy, bullet.damage)
+            //rl.DrawCircleLinesV(enemy.hitbox.center, enemy.hitbox.radius-2, rl.RED)
+            if bullet.name != "crossbow" && bullet.name != "chainsaw" {
+                delete_key(&g_mem.bullets, bullet.id)
+            }
+        }
     }
 }
 
@@ -100,6 +114,7 @@ DrawEnemy :: proc(enemy: ^Enemy) {
         rl.DrawCircleV(enemy.position, enemy.hitbox.radius, rl.ORANGE)
     }
     //rl.DrawTextureEx(enemy.texture, rl.Vector2{enemy.position.x-f32(enemy.texture.width/2), enemy.position.y-f32(enemy.texture.height/2)}, enemy.rotation, 1, rl.WHITE)
+
 
     if DEBUG_MODE {
         DrawCollider(enemy.hitbox)

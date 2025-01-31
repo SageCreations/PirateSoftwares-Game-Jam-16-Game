@@ -17,7 +17,7 @@ Player :: struct {
     invuln_time_start: f32,
     is_dead: bool,
     indicator: rl.Texture2D,
-    shot_at_start: f32,
+    shoot_cd: f32,
     can_shoot: bool,
 }
 
@@ -85,17 +85,16 @@ player_update :: proc(player: ^Player, delta_time: f32) {
         if rl.IsKeyPressed(.R) {
             if player.inventory[player.selected].type != .None {
                 wp_pickup := CreateWeaponPickup(player.position, player.inventory[player.selected])
-                player.inventory[player.selected] = Weapon{}
+                player.inventory[player.selected] = default_wp
                 g_mem.weapon_pickups[wp_pickup.id] = wp_pickup
             }
         }
 
         // shoot button
         //Adding this for bullet being is_shooting
-        if player.can_shoot == true && rl.IsMouseButtonDown(.LEFT)  {
-            player.can_shoot = false
-            player.shot_at_start = g_mem.timer
-            // TODO: spawn bullet
+        if rl.IsMouseButtonDown(.LEFT) && g_mem.player.can_shoot == true   {
+            g_mem.player.can_shoot = false
+            g_mem.player.shoot_cd = (g_mem.timer + g_mem.player.weapon.shoot_cooldown)
             bullet := CreateBullet(&player.weapon)
             g_mem.bullets[bullet.id] = bullet
         }
@@ -139,7 +138,7 @@ player_draw :: proc(player: ^Player) {
         rl.BLUE,
     )
     player.weapon.pos = rl.Vector2{player.position.x + rotatedOffsetX, player.position.y + rotatedOffsetY}
-    rex := rl.Rectangle{ player.position.x + rotatedOffsetX, player.position.y + rotatedOffsetY, f32(player.weapon.texture.width), f32(player.weapon.texture.height) }, // destination
+    rex := rl.Rectangle{ player.position.x + rotatedOffsetX, player.position.y + rotatedOffsetY, f32(player.weapon.texture.width), f32(player.weapon.texture.height) } // destination
     // player's weapon
     rl.DrawTexturePro(
         player.weapon.texture,
@@ -149,6 +148,7 @@ player_draw :: proc(player: ^Player) {
         angleDegrees,
         GetWeaponTint(player.weapon.level),
     )
+
     player.weapon.rotation = angleDegrees // update weapon's rotation to use for bullet spawning
 }
 
@@ -168,11 +168,10 @@ DamagePlayer :: proc(player: ^Player) {
 
 PlayerCollision :: proc(player: ^Player, other: ^Object) {
     if other.name == "item" {
-        // TODO: may not implement, not sure if we have time.
+
     } else if other.name == "enemy" {
         DamagePlayer(player)
     } else if other.name == "weapon" {
-        // TODO: prompt user for pickup
 
     }
 }

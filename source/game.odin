@@ -33,7 +33,7 @@ import "core:math/rand"
 
 PIXEL_WINDOW_HEIGHT :: 400
 
-DEBUG_MODE :: true
+DEBUG_MODE :: false
 
 
 g_mem: ^Game_Memory
@@ -87,9 +87,8 @@ update :: proc() {
 			}
 
 			// check if player can shoot
-			if g_mem.timer >= g_mem.player.shot_at_start + g_mem.player.weapon.shoot_cooldown {
+			if g_mem.timer > g_mem.player.shoot_cd {
 				g_mem.player.can_shoot = true
-				g_mem.player.shot_at_start = 0.0
 			}
 
 			player_update(&g_mem.player, rl.GetFrameTime())
@@ -97,8 +96,21 @@ update :: proc() {
 			if (i32(g_mem.timer) / 60) != g_mem.timer_count  {
 				g_mem.timer_count = (i32(g_mem.timer) / 60)
 				CheckForWeaponUpgrades()
+ 			}
+
+			if (i32(g_mem.timer) / 90) != g_mem.health_check_count {
+				g_mem.health_check_count = (i32(g_mem.timer) / 90)
+				if g_mem.player.health < 4 {
+					g_mem.player.health += 1
+				}
 			}
 
+			// Update bullets
+			for _, &bullet in g_mem.bullets {
+				UpdateBullet(&bullet)
+			}
+
+			// update enemies
 			for key, &enemy in g_mem.enemies {
 				UpdateEnemy(&enemy)
 				if IsColliding(g_mem.player.hitbox, enemy.hitbox) {
@@ -167,6 +179,12 @@ draw :: proc() {
 
 		// player draws
 		player_draw(&g_mem.player)
+
+		// bullet draws
+		for _, &bullet in g_mem.bullets {
+			DrawBullet(&bullet)
+		}
+
 		// enemy draws
 		for _, &enemy in g_mem.enemies {
 			DrawEnemy(&enemy)
@@ -235,6 +253,10 @@ draw :: proc() {
 			fmt.ctprintf("mouse_pos: %v", rl.GetScreenToWorld2D(rl.GetMousePosition(), game_camera())), 5,  25, 20, rl.WHITE)
 			rl.DrawFPS(rl.GetScreenWidth()-30, 5)
 			rl.DrawText(fmt.ctprintf("Enemies Spawned in: %d", len(g_mem.enemies)), 5, 45, 20, rl.WHITE)
+			rl.DrawText(fmt.ctprintf("Number of bullets spawned in: %d", len(g_mem.bullets)), 5, 65, 20, rl.WHITE)
+
+			rl.DrawText(fmt.ctprintf("rotation:%f", g_mem.player.weapon.rotation), 5, 90, 20, rl.WHITE)
+			rl.DrawText(fmt.ctprintf("rot_math:%f ", g_mem.player.weapon.rotation*rl.DEG2RAD), 5, 120, 20, rl.WHITE)
 		}
 		// timer
 		if !g_mem.end_game {
@@ -334,18 +356,16 @@ game_init :: proc(restart: bool = false) {
 		name = "player",
 		offset = rl.Vector2{16, 0},
 		indicator_offset = rl.Vector2{26, 0},
-		weapon = Weapon{
-			type = .None,
-			name = "weapon",
-			texture = rl.Texture2D{},
-			bullet_color = rl.GREEN,
-			damage = 15,
-			level = 0,
-			shoot_cooldown = 0.7,
-		},
+		weapon = default_wp,
 		health = 4,
 		gamepad = 0,
-		inventory = {},
+		inventory = {
+			default_wp,
+			default_wp,
+			default_wp,
+			default_wp,
+			default_wp,
+		},
 		selected = 0,
 		invuln = false,
 		invuln_time_start = 0.0,
@@ -362,6 +382,7 @@ game_init :: proc(restart: bool = false) {
 		scene = (restart) ? .Gameplay : .Title,
 		timer = 0.0,
 		timer_count = 0,
+		health_check_count = 0,
 		paused = false,
 		end_game = false,
 		spawn_cooldown = 48.0,

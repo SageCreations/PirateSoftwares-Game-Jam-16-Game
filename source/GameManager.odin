@@ -10,6 +10,7 @@ Game_Memory :: struct {
     scene: SceneState,
     timer: f32,
     timer_count: i32,
+    health_check_count: i32,
     paused: bool,
     end_game: bool,
     spawn_timer: f32,

@@ -48,12 +48,12 @@ CreateBoss :: proc() -> Enemy {
     pos := GetRandomPosition()
     return Enemy {
         position = pos,
-        speed = 0.7,
+        speed = 0.8,
         rotation = 0,
         hitbox = Circle{pos, 25},
         id = fmt.aprintf("enemy-%d", id),
         name = "enemy",
-        health = 10000,
+        health = 100000,
         is_dead = false,
     }
 }
@@ -84,11 +84,7 @@ UpdateEnemy :: proc(enemy: ^Enemy) {
     enemy.position = (enemy.position - direction)
     enemy.hitbox.center = rl.Vector2{enemy.position.x, enemy.position.y}
 
-//    mouse_pos_world2d: rl.Vector2 = rl.GetScreenToWorld2D(rl.GetMousePosition(), game_camera())
-//
-//    if IsColliding(Circle{mouse_pos_world2d, 5.0}, enemy.hitbox) {
-//        DamageEnemy(enemy, 110)  // TODO: testing only, pass in bullet damage later.
-//    }
+
     // check for bullet collisions
     for _, &bullet in g_mem.bullets {
         if rl.CheckCollisionCircleRec(
@@ -97,6 +93,9 @@ UpdateEnemy :: proc(enemy: ^Enemy) {
             rl.Rectangle{bullet.position.x, bullet.position.y, bullet.size.x, bullet.size.y},
         ) {
             DamageEnemy(enemy, bullet.damage)
+            rl.SetSoundVolume(obj_hit, sound_level)
+            rl.SetSoundPitch(obj_hit, 0.5)
+            rl.PlaySound(obj_hit)
             //rl.DrawCircleLinesV(enemy.hitbox.center, enemy.hitbox.radius-2, rl.RED)
             if bullet.name != "crossbow" && bullet.name != "chainsaw" {
                 delete_key(&g_mem.bullets, bullet.id)

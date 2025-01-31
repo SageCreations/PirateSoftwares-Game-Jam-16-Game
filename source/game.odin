@@ -38,11 +38,14 @@ DEBUG_MODE :: false
 
 g_mem: ^Game_Memory
 sound_level: f32
-
+bg_music: rl.Music
+obj_hit: rl.Sound
+shoot_sound: rl.Sound
 
 game_camera :: proc() -> rl.Camera2D {
 	w := f32(rl.GetScreenWidth())
 	h := f32(rl.GetScreenHeight())
+
 
 	return {
 		zoom = h/PIXEL_WINDOW_HEIGHT,
@@ -58,6 +61,7 @@ ui_camera :: proc() -> rl.Camera2D {
 }
 
 update :: proc() {
+
 	switch g_mem.scene {
 	case .Title:
 
@@ -66,6 +70,7 @@ update :: proc() {
 	case .Settings:
 
 	case .Gameplay:
+		rl.UpdateMusicStream(bg_music)
 		if rl.IsKeyPressed(.P) {
 			g_mem.paused = !g_mem.paused
 		}
@@ -83,7 +88,9 @@ update :: proc() {
 
 			// check if its time to spawn enemies
 			if g_mem.timer >= g_mem.spawn_timer + g_mem.spawn_cooldown {
-				SpawnEnemies()
+				if len(g_mem.enemies) < 300 {
+					SpawnEnemies()
+				}
 			}
 
 			// check if player can shoot
@@ -154,6 +161,7 @@ update :: proc() {
 
 		}
 	case .Ending:
+		rl.UpdateMusicStream(bg_music)
 	}
 
 	if rl.IsKeyPressed(.ESCAPE) {
@@ -223,6 +231,7 @@ draw :: proc() {
 		}
 		// start button
 		if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-100, f32(rl.GetScreenHeight()-100), 200, 50}, "Start Game") {
+			rl.PlayMusicStream(bg_music)
 			g_mem.scene = .Gameplay
 		}
 		// controls explanation
@@ -239,6 +248,10 @@ draw :: proc() {
 		rl.DrawTextureEx(g_mem.rules_texture, {0,0}, 0, 1, rl.WHITE)
 	case .Settings:
 		if rl.GuiButton(rl.Rectangle{10, 10, 200, 50}, "Back") {
+			rl.SetSoundVolume(obj_hit, sound_level)
+			rl.SetSoundVolume(shoot_sound, sound_level)
+			rl.SetMusicVolume(bg_music, sound_level)
+
 			g_mem.scene = .Title
 		}
 		rl.GuiSlider(rl.Rectangle{f32(rl.GetScreenWidth()/2) - 100.0, 100.0, 200.0, 50.0}, cstring("Sound: 0"), cstring(" 100"), &sound_level, 0.0, 1.0)
@@ -249,8 +262,7 @@ draw :: proc() {
 
 		if DEBUG_MODE {
 			rl.DrawText(fmt.ctprintf("player_pos: %v", g_mem.player.position), 5, 5, 20, rl.WHITE)
-			rl.DrawText(
-			fmt.ctprintf("mouse_pos: %v", rl.GetScreenToWorld2D(rl.GetMousePosition(), game_camera())), 5,  25, 20, rl.WHITE)
+			rl.DrawText(fmt.ctprintf("mouse_pos: %v", rl.GetScreenToWorld2D(rl.GetMousePosition(), game_camera())), 5,  25, 20, rl.WHITE)
 			rl.DrawFPS(rl.GetScreenWidth()-30, 5)
 			rl.DrawText(fmt.ctprintf("Enemies Spawned in: %d", len(g_mem.enemies)), 5, 45, 20, rl.WHITE)
 			rl.DrawText(fmt.ctprintf("Number of bullets spawned in: %d", len(g_mem.bullets)), 5, 65, 20, rl.WHITE)
@@ -263,6 +275,7 @@ draw :: proc() {
 			rl.DrawText(FormatTimer(g_mem.timer), (rl.GetScreenWidth()/2)-50, 5, 50, rl.WHITE)
 		} else {
 			rl.DrawText("15:00", (rl.GetScreenWidth()/2)-50, 5, 50, rl.WHITE)
+			rl.DrawText(fmt.ctprintf("Boss Health: %d", g_mem.enemies[g_mem.boss_id].health), (rl.GetScreenWidth()/2)-150, 50, 35, rl.WHITE)
 		}
 
 		// Inventory HUD
@@ -297,8 +310,13 @@ draw :: proc() {
 				game_init(restart=true)
 			}
 			if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 200, 400, 100}, "Return to Title") {
+				rl.StopMusicStream(bg_music)
 				game_init(false)
 			}
+			rl.GuiSlider(rl.Rectangle{f32(rl.GetScreenWidth()/2) - 100.0, 350.0, 200.0, 50.0}, cstring("Sound: 0"), cstring(" 100"), &sound_level, 0.0, 1.0)
+			rl.SetSoundVolume(obj_hit, sound_level)
+			rl.SetSoundVolume(shoot_sound, sound_level)
+			rl.SetMusicVolume(bg_music, sound_level)
 		}
 	case .Ending:
 		if g_mem.is_win {
@@ -308,6 +326,7 @@ draw :: proc() {
 				game_init(restart=true)
 			}
 			if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 450, 400, 100}, "Back to Title") {
+				rl.StopMusicStream(bg_music)
 				game_init(false)
 			}
 		} else {
@@ -316,6 +335,7 @@ draw :: proc() {
 				game_init(restart=true)
 			}
 			if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()/2)-200, 450, 400, 100}, "Back to Title") {
+				rl.StopMusicStream(bg_music)
 				game_init(false)
 			}
 		}
@@ -334,13 +354,22 @@ game_update :: proc() {
 @(export)
 game_init_window :: proc() {
 	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
-	rl.InitWindow(1280, 720, "Placeholder Name")
+	rl.InitWindow(1280, 720, "Cube Destroy")
 	rl.SetWindowPosition(200, 200)
 	rl.SetTargetFPS(60)
 	rl.SetExitKey(nil)
 
+	rl.InitAudioDevice()
+
 	// init global Settings here
 	sound_level = 0.7
+	bg_music = rl.LoadMusicStream("assets/Game_Music.mp3")
+	obj_hit = rl.LoadSound("assets/pop.mp3")
+	shoot_sound = rl.LoadSound("assets/pop.mp3")
+
+	rl.SetSoundVolume(obj_hit, sound_level)
+	rl.SetSoundVolume(shoot_sound, sound_level)
+	rl.SetMusicVolume(bg_music, sound_level)
 }
 
 @(export)
@@ -395,6 +424,8 @@ game_init :: proc(restart: bool = false) {
 		weapon_pickups = make(map[string]Weapon_Pickup),
 		bullets = make(map[string]Bullet),
 
+
+
 		// textures
 		rules_texture = rl.LoadTexture("assets/Rules.png"),
 	}
@@ -422,6 +453,9 @@ game_should_run :: proc() -> bool {
 @(export)
 game_shutdown :: proc() {
 	free(g_mem)
+	rl.UnloadSound(obj_hit)
+	rl.UnloadSound(shoot_sound)
+	rl.CloseAudioDevice()
 }
 
 @(export)

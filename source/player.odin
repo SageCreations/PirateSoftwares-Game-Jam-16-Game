@@ -97,6 +97,8 @@ player_update :: proc(player: ^Player, delta_time: f32) {
             g_mem.player.shoot_cd = (g_mem.timer + g_mem.player.weapon.shoot_cooldown)
             bullet := CreateBullet(&player.weapon)
             g_mem.bullets[bullet.id] = bullet
+            rl.SetSoundPitch(shoot_sound, g_mem.player.weapon.pitch)
+            rl.PlaySound(shoot_sound)
         }
     }
 

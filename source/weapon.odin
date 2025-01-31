@@ -23,6 +23,7 @@ Weapon :: struct {
     shoot_cooldown: f32,
     rotation: f32,
     pos: rl.Vector2,
+    pitch: f32,
 }
 
 Weapon_Pickup :: struct {
@@ -37,7 +38,8 @@ default_wp := Weapon{
     bullet_color = rl.GREEN,
     damage = 26,
     level = 1,
-    shoot_cooldown = 0.5,
+    shoot_cooldown = 0.4,
+    pitch = 0.8,
 }
 
 
@@ -49,30 +51,36 @@ CreateWeapon :: proc () -> Weapon {
     weapon_damage: i32
     weapon_level: i32 = (rand.int31_max(100)+1 <=70) ? 1 : 2
     shoot_cd: f32
+    pit: f32
+
     switch WeaponType(weaponType) {
     case .None:
         weapon_damage = 26
-        shoot_cd = 0.5
+        shoot_cd = 0.4
     case .Finger:
         weapon_texture = rl.LoadTexture("assets/FingerGun.png")
         w_bullet_color = rl.SKYBLUE
-        weapon_damage = 50
-        shoot_cd = 1.0
+        weapon_damage = 34
+        shoot_cd = 0.5
+        pit = 1.1
     case .Crossbow:
         weapon_texture = rl.LoadTexture("assets/CrossBow.png")
         w_bullet_color = rl.YELLOW
         weapon_damage = 34
-        shoot_cd = 1.5
+        shoot_cd = 0.7
+        pit = 1.5
     case .Lazer:
         weapon_texture = rl.LoadTexture("assets/Edge_Chainsaw.png")
         w_bullet_color = rl.DARKGRAY
-        weapon_damage = 51
-        shoot_cd = 0.1
+        weapon_damage = 34
+        shoot_cd = 0.05
+        pit = 1.0
     case .Machinegun:
         weapon_texture = rl.LoadTexture("assets/MGun.png")
         w_bullet_color = rl.WHITE
         weapon_damage = 18
         shoot_cd = 0.1
+        pit = 1.3
     }
 
     return Weapon{
@@ -83,6 +91,7 @@ CreateWeapon :: proc () -> Weapon {
         damage          = weapon_damage,
         level           = weapon_level,
         shoot_cooldown  = shoot_cd,
+        pitch = pit,
     }
 }
 
@@ -194,6 +203,7 @@ CreateBullet :: proc(wp: ^Weapon) -> Bullet {
     bullet_size: rl.Vector2
     name: string
 
+
     switch wp.type {
     case .None:
         d_time = 4.0
@@ -208,12 +218,12 @@ CreateBullet :: proc(wp: ^Weapon) -> Bullet {
     case .Crossbow:
         d_time = 5.0
         spd = 18.0
-        bullet_size = rl.Vector2{3, 10}
+        bullet_size = rl.Vector2{6, 10}
         name = "crossbow"
     case .Lazer:
         d_time = 0.2
         spd = 0.0
-        bullet_size = rl.Vector2{16,16}
+        bullet_size = rl.Vector2{22,30}
         name = "chainsaw"
     case .Machinegun:
         d_time = 5.0

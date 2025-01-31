@@ -87,12 +87,7 @@ CheckForWeaponUpgrades :: proc() {
         #reverse for inventory_item, index in g_mem.player.inventory {
             if inventory_item.type == to_upgrade && inventory_item.level == lvl {
                 if count < 3 {
-                    g_mem.player.inventory[index] = Weapon{
-                        type = .None,
-                        name = "default",
-                        damage = 10,
-                        level = 1,
-                    }
+                    g_mem.player.inventory[index] = default_wp
                     count += 1
                 } else {
                     g_mem.player.inventory[index].level += 1

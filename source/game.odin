@@ -220,7 +220,7 @@ draw :: proc() {
 	switch g_mem.scene {
 	case .Title:
 		// Game Title
-		rl.DrawText("Place Holder", 10, 10, 100, rl.WHITE)
+		rl.DrawText("Cube Destroy", 10, 10, 100, rl.WHITE)
 		// Settings button
 		if rl.GuiButton(rl.Rectangle{f32(rl.GetScreenWidth()-210), 10, 200, 50}, "Settings") {
 			g_mem.scene = .Settings
